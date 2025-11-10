@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Widget Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-btn {
+            background: #5469d4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .test-btn:hover {
+            background: #4257b8;
+        }
+        .log-area {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        iframe {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Copilot Widget Test Page</h1>
+    
+    <div class="test-controls">
+        <h3>Test Controls</h3>
+        <button class="test-btn" onclick="testConnectionScreen()">🔗 Test Connection Screen</button>
+        <button class="test-btn" onclick="checkWidget()">🔍 Check Widget Status</button>
+        <button class="test-btn" onclick="clearLogs()">🧹 Clear Logs</button>
+    </div>
+
+    <div class="log-area" id="logs">
+        <div>📋 Console logs will appear here...</div>
+    </div>
+
+    <iframe src="widget.html" width="400" height="600" id="widget-frame"></iframe>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff4444' : type === 'success' ? '#00ff00' : '#00aaff';
+            logsDiv.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+            console.log(message);
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '<div>📋 Logs cleared...</div>';
+        }
+
+        function testConnectionScreen() {
+            log('🔗 Testing connection screen...', 'info');
+            const iframe = document.getElementById('widget-frame');
+            const iframeWindow = iframe.contentWindow;
+            
+            try {
+                // Try to access the widget instance
+                if (iframeWindow.widget) {
+                    log('✅ Widget instance found', 'success');
+                    log('Calling showConnectionScreen()...', 'info');
+                    iframeWindow.widget.showConnectionScreen();
+                    log('✅ showConnectionScreen() called', 'success');
+                } else {
+                    log('❌ Widget instance not found', 'error');
+                    log('Trying to find CopilotWidget class...', 'info');
+                    
+                    // Try to create and call directly
+                    iframe.contentWindow.postMessage({ type: 'test-connection-screen' }, '*');
+                }
+            } catch (error) {
+                log('❌ Error: ' + error.message, 'error');
+            }
+        }
+
+        function checkWidget() {
+            log('🔍 Checking widget status...', 'info');
+            const iframe = document.getElementById('widget-frame');
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            
+            // Check if elements exist
+            const connectionScreen = iframeDoc.getElementById('connection-screen');
+            const chatContainer = iframeDoc.getElementById('chat-container');
+            const widgetElement = iframeDoc.getElementById('copilot-widget');
+            
+            if (widgetElement) {
+                log('✅ Widget element found', 'success');
+            } else {
+                log('❌ Widget element NOT found', 'error');
+            }
+            
+            if (connectionScreen) {
+                log('✅ Connection screen element found', 'success');
+                log(`   Display: ${connectionScreen.style.display}`, 'info');
+                log(`   Visibility: ${window.getComputedStyle(connectionScreen).visibility}`, 'info');
+            } else {
+                log('❌ Connection screen element NOT found', 'error');
+            }
+            
+            if (chatContainer) {
+                log('✅ Chat container found', 'success');
+                log(`   Display: ${chatContainer.style.display}`, 'info');
+            } else {
+                log('❌ Chat container NOT found', 'error');
+            }
+        }
+
+        // Capture console logs from iframe
+        window.addEventListener('message', function(event) {
+            if (event.data && typeof event.data === 'string') {
+                log('📨 Message from widget: ' + event.data, 'info');
+            }
+        });
+
+        // Wait for iframe to load
+        document.getElementById('widget-frame').onload = function() {
+            log('✅ Widget iframe loaded', 'success');
+            setTimeout(() => {
+                checkWidget();
+            }, 1000);
+        };
+
+        log('🚀 Test page initialized', 'success');
+    </script>
+</body>
+</html>
+

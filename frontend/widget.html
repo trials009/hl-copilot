@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HighLevel Copilot Widget</title>
+    <link rel="stylesheet" href="widget.css">
+</head>
+<body>
+    <div id="copilot-widget" class="copilot-widget">
+        <!-- Widget Header -->
+        <div class="widget-header">
+            <div class="header-content">
+                <div class="header-icon">🤖</div>
+                <div class="header-text">
+                    <h3>Copilot Assistant</h3>
+                    <span class="status-indicator" id="status-indicator">Online</span>
+                </div>
+            </div>
+            <button class="close-btn" id="close-btn" aria-label="Close widget">×</button>
+        </div>
+
+        <!-- Main Content Area -->
+        <div class="widget-content" id="widget-content">
+            <!-- Welcome Screen -->
+            <div class="welcome-screen" id="welcome-screen" style="display: none;">
+                <div class="welcome-icon">👋</div>
+                <h2>Welcome to Copilot!</h2>
+                <p>I'm here to help you create and schedule your social media content.</p>
+                <button class="primary-btn" id="start-chat-btn">Start Conversation</button>
+            </div>
+
+            <!-- Chat Interface -->
+            <div class="chat-container" id="chat-container" style="display: flex;">
+                <div class="chat-messages" id="chat-messages">
+                    <!-- Messages will be dynamically added here -->
+                </div>
+                <div class="chat-input-container">
+                    <input 
+                        type="text" 
+                        id="chat-input" 
+                        class="chat-input" 
+                        placeholder="Type your message..."
+                        autocomplete="off"
+                    >
+                    <button class="send-btn" id="send-btn">Send</button>
+                </div>
+            </div>
+
+            <!-- Facebook Connection Screen -->
+            <div class="connection-screen" id="connection-screen" style="display: none;">
+                <div class="connection-icon">🔗</div>
+                <h2>Connect Facebook</h2>
+                <p>Connect your Facebook page to schedule posts automatically.</p>
+                <button class="primary-btn" id="connect-facebook-btn">Connect Facebook</button>
+                <button class="secondary-btn" id="skip-facebook-btn">Skip for Now</button>
+            </div>
+
+            <!-- Content Calendar View -->
+            <div class="calendar-screen" id="calendar-screen" style="display: none;">
+                <div class="calendar-header">
+                    <h2>30-Day Content Calendar</h2>
+                    <div class="calendar-header-actions">
+                        <button class="primary-btn" id="schedule-all-btn">Schedule All Posts</button>
+                        <button class="secondary-btn" id="generate-calendar-btn">Regenerate</button>
+                        <button class="secondary-btn" id="back-to-chat-btn">Back to Chat</button>
+                        <button class="icon-btn" id="maximize-calendar-btn" title="Maximize">⛶</button>
+                    </div>
+                </div>
+                <div class="calendar-loading" id="calendar-loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Generating your content calendar...</p>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-fill"></div>
+                    </div>
+                </div>
+                <div class="calendar-view-container">
+                    <!-- Calendar Grid View -->
+                    <div class="calendar-grid-view" id="calendar-grid-view">
+                        <div class="calendar-weekdays">
+                            <div class="weekday">Sun</div>
+                            <div class="weekday">Mon</div>
+                            <div class="weekday">Tue</div>
+                            <div class="weekday">Wed</div>
+                            <div class="weekday">Thu</div>
+                            <div class="weekday">Fri</div>
+                            <div class="weekday">Sat</div>
+                        </div>
+                        <div class="calendar-grid" id="calendar-grid">
+                            <!-- Calendar day cells will be dynamically added here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Overlay -->
+        <div class="loading-overlay" id="loading-overlay" style="display: none;">
+            <div class="spinner"></div>
+            <p id="loading-message">Processing...</p>
+        </div>
+
+        <!-- Success Toast -->
+        <div class="toast toast-success" id="success-toast" style="display: none;">
+            <span class="toast-icon">✓</span>
+            <span class="toast-message" id="success-message"></span>
+        </div>
+
+        <!-- Error Toast -->
+        <div class="toast toast-error" id="error-toast" style="display: none;">
+            <span class="toast-icon">✗</span>
+            <span class="toast-message" id="error-message"></span>
+            <button class="toast-retry" id="error-retry-btn" style="display: none;">Retry</button>
+        </div>
+    </div>
+
+    <script src="widget.js"></script>
+</body>
+</html>
+

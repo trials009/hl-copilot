@@ -1,0 +1,103 @@
+/**
+ * HighLevel Copilot Integration - CSS
+ * 
+ * Paste this CSS into HighLevel: Settings > Company > Custom JavaScript & Custom CSS > Custom CSS
+ * 
+ * This CSS styles the floating Copilot button and widget container
+ */
+
+/* Floating Toggle Button */
+#hl-copilot-toggle-btn {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    z-index: 1000000;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    outline: none;
+}
+
+#hl-copilot-toggle-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
+}
+
+#hl-copilot-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+#hl-copilot-toggle-btn.active {
+    background: #ef4444;
+    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+}
+
+/* Widget Container */
+#hl-copilot-widget-container {
+    position: fixed;
+    right: 24px;
+    bottom: calc(24px + 64px + 12px);
+    width: 420px;
+    height: 650px;
+    max-height: calc(100vh - 24px - 64px - 48px);
+    z-index: 999999;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border-radius: 16px;
+    overflow: hidden;
+    display: none;
+    background: white;
+    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Iframe */
+#hl-copilot-iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+/* Responsive design for smaller screens */
+@media (max-width: 768px) {
+    #hl-copilot-widget-container {
+        width: calc(100vw - 48px);
+        height: calc(100vh - 120px);
+        max-height: calc(100vh - 120px);
+        right: 24px;
+        bottom: 24px;
+    }
+
+    #hl-copilot-toggle-btn {
+        right: 24px;
+        bottom: 24px;
+    }
+}
+
+/* Prevent HighLevel UI from interfering */
+#hl-copilot-widget-container,
+#hl-copilot-toggle-btn {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
+}
+

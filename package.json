@@ -1,0 +1,38 @@
+{
+  "name": "highlevel-copilot",
+  "version": "1.0.0",
+  "description": "HighLevel Copilot - AI assistant for content calendar and social media management",
+  "main": "backend/server.js",
+  "scripts": {
+    "start": "node backend/server.js",
+    "dev": "nodemon backend/server.js",
+    "deploy": "vercel --prod",
+    "deploy:dev": "vercel",
+    "test": "playwright test",
+    "test:ui": "playwright test tests/ui-flow.spec.js",
+    "test:api": "playwright test tests/api-flow.spec.js",
+    "test:all": "playwright test tests/"
+  },
+  "keywords": [
+    "highlevel",
+    "copilot",
+    "ai",
+    "social-media"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "body-parser": "^1.20.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "express-session": "^1.17.3",
+    "groq-sdk": "^0.3.3",
+    "vercel": "^48.9.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0",
+    "nodemon": "^3.0.2"
+  }
+}

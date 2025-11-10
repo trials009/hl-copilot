@@ -1,0 +1,71 @@
+# HighLevel Copilot - Project Rules
+
+## Project Overview
+This is a HighLevel Copilot widget - an AI assistant for content calendar and social media management. It includes a Node.js/Express backend, vanilla JavaScript frontend widget, Facebook OAuth integration, and Groq AI integration.
+
+## Tech Stack
+- **Backend**: Node.js, Express.js
+- **Frontend**: Vanilla JavaScript (ES6+), HTML5, CSS3
+- **AI**: Groq API (Llama models) with streaming support
+- **APIs**: Facebook Graph API, HighLevel API
+- **Deployment**: Vercel (serverless)
+- **Testing**: Playwright
+
+## General Principles
+
+### Code Style
+- Use ES6+ JavaScript features
+- Follow async/await patterns (avoid callback hell)
+- Use meaningful variable and function names
+- Add JSDoc comments for complex functions
+- Keep functions focused and single-purpose
+
+### Configuration
+- **NEVER** hardcode API keys or secrets
+- Use `config/config.js` for all configuration access
+- Environment variables should be in `.env` (local) or Vercel dashboard (production)
+- Always check `config.isConfigured()` before using APIs
+
+### Security
+- Validate all user inputs
+- Sanitize data before storing or displaying
+- Use environment variables for sensitive data
+- Never commit `.env` files
+- Implement proper error handling without exposing internals
+
+### Error Handling
+- Use try-catch blocks for async operations
+- Return meaningful error messages to users
+- Log errors server-side for debugging
+- Handle API failures gracefully (fallback to mock mode when appropriate)
+
+### API Design
+- Use RESTful conventions
+- Return consistent JSON response formats
+- Include proper HTTP status codes
+- Support both streaming (SSE) and non-streaming endpoints
+
+### File Organization
+- Backend routes in `backend/routes/`
+- Frontend widget files in `frontend/`
+- Configuration in `config/`
+- Tests in `tests/`
+- Utilities in `backend/utils/`
+
+## Mock Mode
+- System automatically enables mock mode when credentials are missing
+- Mock mode should provide realistic responses for demos
+- Always check `config.features.mockMode` before implementing features
+
+## Vercel Deployment
+- Serverless functions should be stateless
+- Use `vercel-entry.js` for Vercel-specific entry point
+- Environment variables must be set in Vercel dashboard
+- Test locally before deploying
+
+## Documentation
+- Update README.md when adding features
+- Document API endpoints
+- Include examples in code comments
+- Keep configuration documentation up to date
+
