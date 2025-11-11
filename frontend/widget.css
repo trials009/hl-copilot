@@ -1,5 +1,15 @@
 /* HighLevel Copilot Widget Styles */
 
+/* Ensure html and body take full height */
+html,
+body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 /* HighLevel Design System Variables */
 :root {
     --hl-primary: #667eea;
@@ -28,7 +38,8 @@
     font-size: 14px;
     line-height: 1.5;
     width: 100%;
-    height: 100%;
+    height: 100vh;
+    max-height: 100vh;
     display: flex;
     flex-direction: column;
     background: #ffffff;
@@ -36,6 +47,7 @@
     box-shadow: var(--hl-shadow-lg);
     overflow: hidden;
     transition: var(--hl-transition);
+    position: relative;
 }
 
 /* Header */
@@ -253,6 +265,7 @@
     min-height: 0;
     overflow: hidden;
     position: relative;
+    height: 100%;
 }
 
 .chat-messages {
@@ -265,7 +278,6 @@
     flex-direction: column;
     gap: 16px;
     min-height: 0;
-    height: 100%;
 }
 
 .message {
@@ -383,6 +395,7 @@
     z-index: 10;
     flex-shrink: 0;
     width: 100%;
+    margin-top: auto;
 }
 
 .chat-suggestion-text {
