@@ -10,13 +10,13 @@ HighLevel Copilot is an AI-powered widget that integrates seamlessly into HighLe
 
 ```mermaid
 graph TB
-    subgraph "HighLevel Platform"
+    subgraph "Agency view"
         HL[HighLevel Interface]
         CustomJS[Custom JavaScript]
         CustomCSS[Custom CSS]
     end
     
-    subgraph "Client Side"
+    subgraph "Sub-account"
         Widget[Widget HTML/CSS/JS]
         Iframe[Widget Iframe]
     end
@@ -46,15 +46,15 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant User
-    participant HL as HighLevel Platform
+    participant Admin as Agency View
     participant Widget as Widget UI
+    participant User
     participant API as Express API
     participant Groq as Groq AI
     participant FB as Facebook Graph API
     
-    User->>HL: Opens HighLevel Interface
-    HL->>Widget: Loads Widget via Custom JS
+    Admin->>Agency View: Opens HighLevel Interface
+    Agency View->>Widget: Loads Widget via Custom JS
     Widget->>API: POST /api/chat/stream
     API->>Groq: Chat Completion Request
     Groq-->>API: Streaming AI Response
@@ -104,9 +104,9 @@ sequenceDiagram
 
 **Location**: `integration/highlevel-integration.js`
 
-**Trade-offs**:
-- ✅ **Pros**: No app store approval needed, full control over UI/UX, instant deployment
-- ❌ **Cons**: Limited to Custom JS capabilities, no native HighLevel API access, requires manual updates
+<!-- **Trade-offs**:
+- ✅ **Pros**: No app store approval needed, full control over UI/UX, instant deployment -->
+<!-- - ❌ **Cons**: Limited to Custom JS capabilities, no native HighLevel API access, requires manual updates -->
 
 ### 2. Node.js (Express Backend)
 
