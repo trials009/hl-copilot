@@ -850,12 +850,33 @@ class CopilotWidget {
         const messagesContainer = document.getElementById('chat-messages');
         if (!messagesContainer) return;
 
-        // Group posts into Week 1, Week 2, Week 3, Week 4 (7-8 posts per week for 30 days)
-        const weeks = [[], [], [], []]; // Week 1, Week 2, Week 3, Week 4
+        // Group posts by 7-day weeks starting from today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Start of today
+        
+        const weeks = [];
+        const weekMap = new Map(); // Map to track which week each post belongs to
+        
         posts.forEach((post, index) => {
-            const weekIndex = Math.floor(index / 7.5); // ~7.5 posts per week for 30 days
-            const weekNum = Math.min(weekIndex, 3); // Cap at week 4
-            weeks[weekNum].push({ ...post, index });
+            const postDate = new Date(post.date);
+            postDate.setHours(0, 0, 0, 0);
+            
+            // Calculate days from today
+            const daysFromToday = Math.floor((postDate - today) / (1000 * 60 * 60 * 24));
+            
+            // Determine which week (0-indexed, 7 days per week)
+            const weekIndex = Math.floor(daysFromToday / 7);
+            
+            if (!weekMap.has(weekIndex)) {
+                weekMap.set(weekIndex, []);
+            }
+            weekMap.get(weekIndex).push({ ...post, index });
+        });
+        
+        // Convert map to sorted array of weeks
+        const sortedWeekIndices = Array.from(weekMap.keys()).sort((a, b) => a - b);
+        sortedWeekIndices.forEach(weekIndex => {
+            weeks.push(weekMap.get(weekIndex));
         });
 
         // Create accordion for each week
@@ -863,13 +884,27 @@ class CopilotWidget {
             if (weekPosts.length === 0) return;
 
             const weekNum = weekIndex + 1;
-            const firstDate = new Date(weekPosts[0].date);
-            const lastDate = new Date(weekPosts[weekPosts.length - 1].date);
+            
+            // Calculate week start and end dates (7 days starting from today)
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const weekStartDate = new Date(today);
+            weekStartDate.setDate(today.getDate() + (weekIndex * 7));
+            const weekEndDate = new Date(weekStartDate);
+            weekEndDate.setDate(weekStartDate.getDate() + 6);
+            
+            // Use calculated week dates for display (always 7 days per week)
+            const firstDate = weekStartDate;
+            const lastDate = weekEndDate;
 
             // Create accordion container
             const accordionContainer = document.createElement('div');
             accordionContainer.className = 'message assistant week-accordion';
             accordionContainer.dataset.weekNum = weekNum;
+            
+            // Create message content wrapper (to match message structure)
+            const messageContent = document.createElement('div');
+            messageContent.className = 'message-content week-accordion-wrapper';
             
             // Week header (clickable)
             const weekHeader = document.createElement('div');
@@ -888,11 +923,17 @@ class CopilotWidget {
             weekContent.className = 'week-accordion-content';
             weekContent.style.display = 'none'; // Collapsed by default
             
+            // Create a container for posts to ensure proper layout
+            const postsContainer = document.createElement('div');
+            postsContainer.className = 'week-posts-container';
+            
             // Add posts to week content
             weekPosts.forEach(post => {
                 const postMessage = this.createPostMessage(post, post.index);
-                weekContent.appendChild(postMessage);
+                postsContainer.appendChild(postMessage);
             });
+            
+            weekContent.appendChild(postsContainer);
 
             // Toggle functionality
             weekHeader.addEventListener('click', () => {
@@ -912,8 +953,9 @@ class CopilotWidget {
                 }
             });
 
-            accordionContainer.appendChild(weekHeader);
-            accordionContainer.appendChild(weekContent);
+            messageContent.appendChild(weekHeader);
+            messageContent.appendChild(weekContent);
+            accordionContainer.appendChild(messageContent);
             messagesContainer.appendChild(accordionContainer);
         });
 
