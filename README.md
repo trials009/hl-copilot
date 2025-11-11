@@ -11,7 +11,7 @@ HighLevel Copilot is an AI-powered widget that integrates seamlessly into HighLe
 ```mermaid
 graph TB
     subgraph "Agency view"
-        HL[HighLevel Interface]
+        HL[HighLevel Admin Interface]
         CustomJS[Custom JavaScript]
         CustomCSS[Custom CSS]
     end
@@ -46,15 +46,16 @@ graph TB
 
 ```mermaid
 sequenceDiagram
-    participant Admin as Agency View
+    participant Admin
+    participant Agency as Agency View
     participant Widget as Widget UI
     participant User
     participant API as Express API
     participant Groq as Groq AI
     participant FB as Facebook Graph API
     
-    Admin->>Agency View: Opens HighLevel Interface
-    Agency View->>Widget: Loads Widget via Custom JS
+    Admin->>Agency: Opens HighLevel Admin Interface
+    Agency->>Widget: Loads Widget via Custom JS
     Widget->>API: POST /api/chat/stream
     API->>Groq: Chat Completion Request
     Groq-->>API: Streaming AI Response
