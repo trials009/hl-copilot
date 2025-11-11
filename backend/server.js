@@ -44,13 +44,17 @@ app.use('/widget', express.static(path.join(__dirname, '../frontend'), {
     // Ensure widget files are publicly accessible
     res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Security-Policy', "frame-ancestors *;");
-    // Disable caching for HTML files to ensure fresh content
+    // Disable caching for HTML files to ensure fresh content after deployments
     if (filePath.endsWith('.html')) {
-      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate, max-age=0');
       res.setHeader('Pragma', 'no-cache');
       res.setHeader('Expires', '0');
+      res.setHeader('ETag', ''); // Remove ETag to prevent conditional requests
+    } else if (filePath.endsWith('.js') || filePath.endsWith('.css')) {
+      // Cache CSS/JS with version query parameter (cache-busting handled by query params)
+      res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1 year for versioned assets
     } else {
-      // Cache CSS/JS for 1 hour
+      // Cache other assets for 1 hour
       res.setHeader('Cache-Control', 'public, max-age=3600');
     }
   }

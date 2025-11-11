@@ -10,8 +10,10 @@
  *    (For Agency view - this is where Custom JS is located)
  * 4. Paste the CSS from highlevel-integration.css into the "Custom CSS" section
  * 5. Paste this JavaScript code into the "Custom JS" section
- * 6. Update COPILOT_API_URL below (line ~33) with your Vercel URL
- * 7. Save and reload HighLevel
+ * 6. Update COPILOT_API_URL below (line ~40) with your Vercel URL
+ * 7. After each Vercel deployment, update widgetVersion (line ~117) to force cache refresh
+ *    Example: Change 'v1.0.1' to 'v1.0.2' after deploying new changes
+ * 8. Save and reload HighLevel
  * 
  * IMPORTANT: Based on HighLevel documentation:
  * - Custom JS and CSS are in separate sections in Settings > Company > Custom JavaScript & Custom CSS
@@ -112,9 +114,13 @@
         });
 
         // Create iframe (widget starts directly in chat mode)
+        // Add cache-busting query parameter to ensure fresh content after deployments
+        // IMPORTANT: Update widgetVersion when deploying new versions to force cache refresh
+        const widgetVersion = 'v1.0.1'; // ⚠️ UPDATE THIS when deploying new versions
+        const cacheBuster = `?v=${widgetVersion}&_=${Date.now()}`;
         iframe = createElement('iframe', {
             id: 'hl-copilot-iframe',
-            src: `${COPILOT_API_URL}/widget/widget.html`,
+            src: `${COPILOT_API_URL}/widget/widget.html${cacheBuster}`,
             allow: 'clipboard-read; clipboard-write',
             sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox',
             title: 'HighLevel Copilot Assistant'
