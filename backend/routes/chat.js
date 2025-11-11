@@ -19,6 +19,7 @@ const conversations = new Map();
  */
 function buildContextReminder(conversationHistory, facebookConnected, businessProfile = null, isTriggerMessage = false) {
   const userMessages = conversationHistory.filter(msg => msg.role === 'user');
+  const assistantMessages = conversationHistory.filter(msg => msg.role === 'assistant');
   const realUserResponses = userMessages.filter(msg => {
     const trimmed = msg.content.trim().toLowerCase();
     return trimmed && trimmed !== 'hello' && trimmed !== 'hi' && trimmed !== 'start' && trimmed.length >= 3;
@@ -30,15 +31,78 @@ function buildContextReminder(conversationHistory, facebookConnected, businessPr
   let contextReminder = '';
 
   // Check if business profile information is missing
+  // Also check if the question was already asked in conversation history
   const missingProfileInfo = [];
+
+  // Check if industry question was already asked
+  const industryAsked = assistantMessages.some(msg =>
+    msg.content.toLowerCase().includes('industry') ||
+    msg.content.toLowerCase().includes('what industry')
+  );
+
+  // Check if audience question was already asked
+  const audienceAsked = assistantMessages.some(msg =>
+    msg.content.toLowerCase().includes('target audience') ||
+    msg.content.toLowerCase().includes('ideal customers') ||
+    msg.content.toLowerCase().includes('who are your') ||
+    msg.content.toLowerCase().includes('who do you think')
+  );
+
+  // Check if tone question was already asked
+  const toneAsked = assistantMessages.some(msg =>
+    msg.content.toLowerCase().includes('tone') ||
+    msg.content.toLowerCase().includes('voice') ||
+    msg.content.toLowerCase().includes('brand personality')
+  );
+
+  // Check if questions were asked AND answered by looking at conversation order
+  // Find the position of the last question in the full conversation history
+  let lastIndustryQuestionPos = -1;
+  let lastAudienceQuestionPos = -1;
+  let lastToneQuestionPos = -1;
+
+  conversationHistory.forEach((msg, index) => {
+    if (msg.role === 'assistant') {
+      const content = msg.content.toLowerCase();
+      if (content.includes('industry') || content.includes('what industry')) {
+        lastIndustryQuestionPos = index;
+      }
+      if (content.includes('target audience') || content.includes('ideal customers') ||
+        content.includes('who are your') || content.includes('who do you think')) {
+        lastAudienceQuestionPos = index;
+      }
+      if (content.includes('tone') || content.includes('voice') || content.includes('brand personality')) {
+        lastToneQuestionPos = index;
+      }
+    }
+  });
+
+  // Check if there's a user message after each question
+  const userResponseAfterIndustry = lastIndustryQuestionPos >= 0 &&
+    conversationHistory.slice(lastIndustryQuestionPos + 1).some(msg => msg.role === 'user');
+  const userResponseAfterAudience = lastAudienceQuestionPos >= 0 &&
+    conversationHistory.slice(lastAudienceQuestionPos + 1).some(msg => msg.role === 'user');
+  const userResponseAfterTone = lastToneQuestionPos >= 0 &&
+    conversationHistory.slice(lastToneQuestionPos + 1).some(msg => msg.role === 'user');
+
   if (!businessProfile || !businessProfile.industry) {
-    missingProfileInfo.push('industry');
+    // Only ask if never asked, or asked but no user response yet
+    if (!industryAsked || (industryAsked && !userResponseAfterIndustry)) {
+      missingProfileInfo.push('industry');
+    }
   }
   if (!businessProfile || !businessProfile.audience) {
-    missingProfileInfo.push('target audience');
+    // Only ask if never asked, or asked but no user response yet
+    // Also check if audience was already extracted from conversation
+    if (!audienceAsked || (audienceAsked && !userResponseAfterAudience)) {
+      missingProfileInfo.push('target audience');
+    }
   }
   if (!businessProfile || !businessProfile.tone) {
-    missingProfileInfo.push('brand tone/voice');
+    // Only ask if never asked, or asked but no user response yet
+    if (!toneAsked || (toneAsked && !userResponseAfterTone)) {
+      missingProfileInfo.push('brand tone/voice');
+    }
   }
 
   // Check if Facebook connection is required
@@ -549,11 +613,36 @@ function extractBusinessInfo(userMessage, assistantMessage, userId) {
     }
   }
 
-  // Extract audience
+  // Extract audience - improved detection
   if (!profile.audience) {
-    const audienceMatch = message.match(/(?:target audience|customers|clients)[:\s]+([^.,!?]+)/i);
+    // First try explicit pattern
+    let audienceMatch = message.match(/(?:target audience|customers|clients|ideal customers)[:\s]+([^.,!?]+)/i);
     if (audienceMatch) {
       profile.audience = audienceMatch[1].trim();
+    } else {
+      // If assistant asked about audience and user responded, extract from user message
+      // Common audience responses: professionals, families, students, retirees, etc.
+      const audiencePatterns = [
+        /(?:young professionals|professionals|families|students|retirees|parents|seniors|millennials|gen z|gen x|baby boomers)/i,
+        /(?:business owners|entrepreneurs|small business|enterprise|b2b|b2c)/i,
+        /(?:fitness enthusiasts|health conscious|tech savvy|creative professionals)/i
+      ];
+
+      for (const pattern of audiencePatterns) {
+        const match = userMessage.match(pattern);
+        if (match) {
+          profile.audience = match[0].trim();
+          break;
+        }
+      }
+
+      // If still not found, check if assistant message contains audience question
+      // and user message is a direct answer (not a question)
+      if (!profile.audience && assistantMessage.toLowerCase().includes('audience') &&
+        !userMessage.includes('?') && userMessage.length > 3 && userMessage.length < 50) {
+        // Likely a direct answer to audience question
+        profile.audience = userMessage.trim();
+      }
     }
   }
 
