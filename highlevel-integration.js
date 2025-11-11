@@ -96,6 +96,13 @@
         // Note: CSS should be in HighLevel's Custom CSS section
         // No need to inject styles via JavaScript
 
+        // Create backdrop overlay
+        const backdrop = createElement('div', {
+            id: 'hl-copilot-backdrop'
+        });
+        backdrop.addEventListener('click', closeWidget);
+        document.body.appendChild(backdrop);
+
         // Create widget container
         widgetContainer = createElement('div', {
             id: 'hl-copilot-widget-container'
@@ -197,7 +204,15 @@
 
     function openWidget() {
         if (widgetContainer) {
-            widgetContainer.style.display = 'block';
+            // Remove closing class if present
+            widgetContainer.classList.remove('closing');
+            // Show sidebar
+            widgetContainer.classList.add('show');
+            // Show backdrop
+            const backdrop = document.getElementById('hl-copilot-backdrop');
+            if (backdrop) {
+                backdrop.classList.add('show');
+            }
             toggleButton.classList.add('active');
             if (toggleButton.closeIcon) {
                 toggleButton.innerHTML = toggleButton.closeIcon;
@@ -221,7 +236,18 @@
 
     function closeWidget() {
         if (widgetContainer) {
-            widgetContainer.style.display = 'none';
+            // Add closing animation class
+            widgetContainer.classList.add('closing');
+            // Hide backdrop
+            const backdrop = document.getElementById('hl-copilot-backdrop');
+            if (backdrop) {
+                backdrop.classList.remove('show');
+            }
+            // Remove show class after animation completes
+            setTimeout(() => {
+                widgetContainer.classList.remove('show', 'closing');
+            }, 300); // Match animation duration
+
             toggleButton.classList.remove('active');
             if (toggleButton.copilotIcon) {
                 toggleButton.innerHTML = toggleButton.copilotIcon;

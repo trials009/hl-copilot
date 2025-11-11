@@ -47,45 +47,58 @@
 }
 
 #hl-copilot-toggle-btn.active {
-    background: #ef4444;
-    box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
+    display: none;
+    /* Hide floating button when sidebar is open */
 }
 
-#hl-copilot-toggle-btn.active:hover {
-    background: #dc2626;
-    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6);
-}
-
-/* Widget Container - Ask AI Theme */
+/* Widget Container - Sidebar Style */
 #hl-copilot-widget-container {
     position: fixed;
-    right: 24px;
-    bottom: calc(24px + 64px + 12px);
-    width: 420px;
-    height: 650px;
-    max-height: calc(100vh - 24px - 64px - 48px);
+    top: 0;
+    right: 0;
+    width: 630px;
+    height: 100vh;
+    max-height: 100vh;
     z-index: 999999;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    border-radius: 12px;
-    /* Matching widget border radius */
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
     overflow: hidden;
     display: none;
     background: white;
-    animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    border: 1px solid #e5e7eb;
-    /* Subtle border matching widget */
+    animation: slideInFromRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    border-left: 1px solid #e5e7eb;
+    /* Subtle border on left side */
 }
 
-@keyframes slideIn {
+#hl-copilot-widget-container.show {
+    display: block;
+}
+
+@keyframes slideInFromRight {
     from {
         opacity: 0;
-        transform: translateY(20px) scale(0.95);
+        transform: translateX(100%);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0) scale(1);
+        transform: translateX(0);
     }
+}
+
+@keyframes slideOutToRight {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+#hl-copilot-widget-container.closing {
+    animation: slideOutToRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* Iframe */
@@ -96,19 +109,37 @@
     display: block;
 }
 
+/* Backdrop overlay when sidebar is open */
+#hl-copilot-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.3);
+    z-index: 999998;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#hl-copilot-backdrop.show {
+    display: block;
+    opacity: 1;
+}
+
 /* Responsive design for smaller screens */
 @media (max-width: 768px) {
     #hl-copilot-widget-container {
-        width: calc(100vw - 48px);
-        height: calc(100vh - 120px);
-        max-height: calc(100vh - 120px);
-        right: 24px;
-        bottom: 24px;
+        width: 100vw;
+        right: 0;
     }
 
     #hl-copilot-toggle-btn {
-        right: 24px;
-        bottom: 24px;
+        right: 16px;
+        bottom: 16px;
+        width: 56px;
+        height: 56px;
     }
 }
 
