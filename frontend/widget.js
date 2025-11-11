@@ -7,8 +7,15 @@ class CopilotWidget {
     constructor() {
         // Get API URL from parent window message or fallback
         this.apiUrl = window.COPILOT_API_URL || 'http://localhost:3000';
-        this.sessionId = this.generateSessionId();
-        this.userId = window.COPILOT_USER_ID || this.sessionId;
+        // Set userId first (needed for sessionId generation)
+        // Try to get persistent userId from localStorage first to maintain session across refreshes
+        const persistentUserId = localStorage.getItem('copilot_persistent_user_id');
+        this.userId = window.COPILOT_USER_ID || persistentUserId || this.generateSessionId();
+        if (!persistentUserId && !window.COPILOT_USER_ID) {
+            localStorage.setItem('copilot_persistent_user_id', this.userId);
+        }
+        // Load or generate sessionId - persist across widget closes
+        this.sessionId = this.getOrCreateSessionId();
         this.currentScreen = 'chat'; // Start directly in chat
         this.calendar = null;
         this.isHighLevel = window.parent !== window;
@@ -43,6 +50,101 @@ class CopilotWidget {
         return `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     }
 
+    getOrCreateSessionId() {
+        // Use consistent userId for session persistence (already set in constructor)
+        const storageKey = `copilot_session_${this.userId}`;
+        let sessionId = localStorage.getItem(storageKey);
+        
+        if (!sessionId) {
+            sessionId = this.generateSessionId();
+            localStorage.setItem(storageKey, sessionId);
+        }
+        
+        return sessionId;
+    }
+
+    async loadConversationHistory() {
+        try {
+            // Wait a bit to ensure DOM is ready
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            const response = await fetch(`${this.apiUrl}/api/chat/history/${this.sessionId}`);
+            if (!response.ok) {
+                // No history - show welcome message
+                return;
+            }
+            
+            const data = await response.json();
+            if (data.history && data.history.length > 0) {
+                const messagesContainer = document.getElementById('chat-messages');
+                if (!messagesContainer) {
+                    // Retry after a short delay if container not ready
+                    setTimeout(() => this.loadConversationHistory(), 200);
+                    return;
+                }
+                
+                // Clear any existing messages (including welcome message if it was shown)
+                messagesContainer.innerHTML = '';
+                
+                // Restore messages from history, filtering out trigger messages
+                data.history.forEach((msg) => {
+                    if (msg.role === 'user' || msg.role === 'assistant') {
+                        // Skip "start" trigger message and empty messages
+                        const content = msg.content.trim().toLowerCase();
+                        if (content === 'start' || content === '' || content === 'hello' || content === 'hi') {
+                            return; // Skip trigger messages
+                        }
+                        this.addMessage(msg.role, msg.content, false);
+                    }
+                });
+                
+                // Scroll to bottom after loading
+                setTimeout(() => {
+                    this.scrollToBottom(false);
+                }, 100);
+                
+                // Return true to indicate history was loaded
+                return true;
+            }
+        } catch (error) {
+            console.error('Error loading conversation history:', error);
+            // Silently fail - start fresh if history can't be loaded
+        }
+        return false;
+    }
+
+    async startNewChat() {
+        // Clear conversation history on backend
+        try {
+            await fetch(`${this.apiUrl}/api/chat/history/${this.sessionId}`, {
+                method: 'DELETE'
+            });
+        } catch (error) {
+            console.error('Error clearing conversation history:', error);
+        }
+        
+        // Generate new sessionId and store it
+        const storageKey = `copilot_session_${this.userId}`;
+        this.sessionId = this.generateSessionId();
+        localStorage.setItem(storageKey, this.sessionId);
+        
+        // Clear messages from UI
+        const messagesContainer = document.getElementById('chat-messages');
+        if (messagesContainer) {
+            messagesContainer.innerHTML = '';
+        }
+        
+        // Reset conversation context
+        this.conversationContext = {
+            industry: null,
+            businessType: null,
+            lastQuestion: null
+        };
+        
+        // Show initial greeting
+        this.showChatScreen(true);
+    }
+
     scrollToBottom(smooth = true) {
         const messagesContainer = document.getElementById('chat-messages');
         if (!messagesContainer) return;
@@ -56,11 +158,22 @@ class CopilotWidget {
         });
     }
 
-    init() {
+    async init() {
         this.setupEventListeners();
         this.checkFacebookConnection();
-        // Show chat screen directly on init
-        this.showChatScreen(true);
+        // Show chat screen directly on init (without welcome message yet)
+        this.showChatScreen(false);
+        // Load previous conversation history if available (wait a bit for DOM to be ready)
+        setTimeout(async () => {
+            const historyLoaded = await this.loadConversationHistory();
+            // Only show welcome message if no history was loaded
+            if (!historyLoaded) {
+                // Small delay to ensure chat screen is ready, then show welcome
+                setTimeout(() => {
+                    this.showChatScreen(true);
+                }, 100);
+            }
+        }, 300);
     }
 
     setupEventListeners() {
@@ -74,6 +187,12 @@ class CopilotWidget {
         const closeBtn = document.getElementById('close-btn');
         if (closeBtn) {
             closeBtn.addEventListener('click', () => this.closeWidget());
+        }
+
+        // New chat button
+        const newChatBtn = document.getElementById('new-chat-btn');
+        if (newChatBtn) {
+            newChatBtn.addEventListener('click', () => this.startNewChat());
         }
 
         // Chat input
@@ -174,11 +293,11 @@ class CopilotWidget {
     }
 
     async sendWelcomeMessage() {
-        // Send an empty message to trigger AI welcome message with industry question
+        // Send a trigger message to get AI welcome message with industry question
+        // The AI will respond with greeting and ask about industry
         const input = document.getElementById('chat-input');
         if (input) {
-            // Send empty string to trigger first AI response
-            input.value = '';
+            input.value = 'start';
             await this.sendMessage();
         }
     }
@@ -246,17 +365,10 @@ class CopilotWidget {
         const hasMessages = messagesContainer && messagesContainer.children.length > 0;
 
         if (showWelcome && !hasMessages) {
-            // Show immediate welcome message with quick replies
+            // Trigger AI to send welcome message with industry question
+            // This will generate the proper greeting and industry options from AI
             setTimeout(() => {
-                // Get user name if available, otherwise use generic greeting
-                const userName = window.COPILOT_USER_NAME || 'there';
-                const greeting = userName !== 'there' ? `Hi ${userName}, how can I help?` : "Hi there, how can I help?";
-                this.addMessage('assistant', greeting, false, true); // isGreeting = true
-                // Generate and show quick replies based on URL
-                setTimeout(() => {
-                    const industryOptions = this.getIndustryOptionsFromUrl();
-                    this.showQuickReplies(industryOptions);
-                }, 500);
+                this.sendWelcomeMessage();
             }, 300);
         }
     }
@@ -738,41 +850,71 @@ class CopilotWidget {
         const messagesContainer = document.getElementById('chat-messages');
         if (!messagesContainer) return;
 
-        // Group posts by week for better organization
-        const postsByWeek = {};
+        // Group posts into Week 1, Week 2, Week 3, Week 4 (7-8 posts per week for 30 days)
+        const weeks = [[], [], [], []]; // Week 1, Week 2, Week 3, Week 4
         posts.forEach((post, index) => {
-            const date = new Date(post.date);
-            const weekStart = new Date(date);
-            weekStart.setDate(date.getDate() - date.getDay()); // Get Sunday of that week
-            const weekKey = weekStart.toISOString().split('T')[0];
-
-            if (!postsByWeek[weekKey]) {
-                postsByWeek[weekKey] = [];
-            }
-            postsByWeek[weekKey].push({ ...post, index });
+            const weekIndex = Math.floor(index / 7.5); // ~7.5 posts per week for 30 days
+            const weekNum = Math.min(weekIndex, 3); // Cap at week 4
+            weeks[weekNum].push({ ...post, index });
         });
 
-        // Display posts grouped by week
-        Object.keys(postsByWeek).sort().forEach(weekKey => {
-            const weekPosts = postsByWeek[weekKey];
-            const weekStart = new Date(weekKey);
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
+        // Create accordion for each week
+        weeks.forEach((weekPosts, weekIndex) => {
+            if (weekPosts.length === 0) return;
 
+            const weekNum = weekIndex + 1;
+            const firstDate = new Date(weekPosts[0].date);
+            const lastDate = new Date(weekPosts[weekPosts.length - 1].date);
+
+            // Create accordion container
+            const accordionContainer = document.createElement('div');
+            accordionContainer.className = 'message assistant week-accordion';
+            accordionContainer.dataset.weekNum = weekNum;
+            
+            // Week header (clickable)
             const weekHeader = document.createElement('div');
-            weekHeader.className = 'message assistant week-header';
+            weekHeader.className = 'week-accordion-header';
             weekHeader.innerHTML = `
                 <div class="week-header-content">
-                    <strong>Week of ${weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong>
+                    <span class="week-number">Week ${weekNum}</span>
+                    <span class="week-date-range">${firstDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span class="week-post-count">${weekPosts.length} posts</span>
+                    <span class="week-accordion-icon">▼</span>
                 </div>
             `;
-            messagesContainer.appendChild(weekHeader);
-
-            // Display each post in the week
+            
+            // Week content (collapsed by default)
+            const weekContent = document.createElement('div');
+            weekContent.className = 'week-accordion-content';
+            weekContent.style.display = 'none'; // Collapsed by default
+            
+            // Add posts to week content
             weekPosts.forEach(post => {
                 const postMessage = this.createPostMessage(post, post.index);
-                messagesContainer.appendChild(postMessage);
+                weekContent.appendChild(postMessage);
             });
+
+            // Toggle functionality
+            weekHeader.addEventListener('click', () => {
+                const isExpanded = weekContent.style.display !== 'none';
+                weekContent.style.display = isExpanded ? 'none' : 'block';
+                const icon = weekHeader.querySelector('.week-accordion-icon');
+                if (icon) {
+                    icon.textContent = isExpanded ? '▼' : '▲';
+                }
+                weekHeader.classList.toggle('expanded', !isExpanded);
+                
+                // Scroll to show the expanded content
+                if (!isExpanded) {
+                    setTimeout(() => {
+                        weekHeader.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }, 100);
+                }
+            });
+
+            accordionContainer.appendChild(weekHeader);
+            accordionContainer.appendChild(weekContent);
+            messagesContainer.appendChild(accordionContainer);
         });
 
         // Add action buttons at the end

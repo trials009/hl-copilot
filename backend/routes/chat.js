@@ -17,31 +17,65 @@ const conversations = new Map();
  * Build dynamic context prompt based on conversation history and user status
  * Consolidates all context logic into a single prompt function
  */
-function buildContextReminder(conversationHistory, facebookConnected) {
+function buildContextReminder(conversationHistory, facebookConnected, businessProfile = null, isTriggerMessage = false) {
   const userMessages = conversationHistory.filter(msg => msg.role === 'user');
   const realUserResponses = userMessages.filter(msg => {
     const trimmed = msg.content.trim().toLowerCase();
     return trimmed && trimmed !== 'hello' && trimmed !== 'hi' && trimmed !== 'start' && trimmed.length >= 3;
   }).length;
 
+  // If this is a trigger message, treat as first interaction
+  const effectiveUserResponses = isTriggerMessage ? 0 : realUserResponses;
+
   let contextReminder = '';
 
+  // Check if business profile information is missing
+  const missingProfileInfo = [];
+  if (!businessProfile || !businessProfile.industry) {
+    missingProfileInfo.push('industry');
+  }
+  if (!businessProfile || !businessProfile.audience) {
+    missingProfileInfo.push('target audience');
+  }
+  if (!businessProfile || !businessProfile.tone) {
+    missingProfileInfo.push('brand tone/voice');
+  }
+
   // Check if Facebook connection is required
-  if (realUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK &&
+  if (effectiveUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK &&
     !facebookConnected &&
     !conversationHistory.some(msg => msg.role === 'assistant' && msg.content.toLowerCase().includes('connect facebook'))) {
     contextReminder += '\n\n🚨 CRITICAL: The user has answered multiple questions but Facebook is NOT connected. You MUST now ask them to connect their Facebook account. Include "Connect Facebook" as a quick reply option.';
   }
 
-  // Add conversation stage context
-  if (realUserResponses === 0) {
-    contextReminder += '\n\nCONTEXT: This is the first interaction. Ask "What industry are you in?" and generate 4-5 diverse industry quick reply options. Always include an "Other" option.';
-  } else if (realUserResponses === 1) {
-    contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their specific products/services. Generate relevant options based on their industry. IMPORTANT: Start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
-  } else if (realUserResponses === 2) {
-    contextReminder += '\n\nCONTEXT: Ask about target audience, business goals, or other relevant details. Generate contextually relevant quick replies. If showing categories, include "All of these" first and "Other" last.';
-  } else if (realUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK && facebookConnected) {
+  // Add conversation stage context with business profile awareness
+  if (effectiveUserResponses === 0) {
+    if (missingProfileInfo.includes('industry')) {
+      contextReminder += '\n\nCONTEXT: This is the first interaction. Start with a friendly greeting like "Hope you are doing well! How can I help you today?" Then immediately ask "What industry are you in?" to understand their business. Generate 4-5 diverse industry quick reply options such as: Restaurant & Food, Fitness & Health, E-commerce, Professional Services, Beauty & Wellness, Education & Training, Real Estate, Technology & Software. Always include an "Other" option as the last option.';
+    } else {
+      contextReminder += '\n\nCONTEXT: This is the first interaction. Start with a friendly greeting like "Hope you are doing well! How can I help you today?" The user\'s industry is known, but you should gather more business information. Ask about their specific products/services or target audience.';
+    }
+  } else if (effectiveUserResponses === 1) {
+    if (missingProfileInfo.includes('industry')) {
+      contextReminder += '\n\nCONTEXT: The user hasn\'t shared their industry yet. Ask "What industry are you in?" and generate 4-5 diverse industry quick reply options. Always include an "Other" option.';
+    } else if (missingProfileInfo.includes('target audience')) {
+      contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their target audience or specific products/services. Generate relevant options based on their industry. IMPORTANT: If asking about products/services, start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
+    } else {
+      contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their specific products/services. Generate relevant options based on their industry. IMPORTANT: Start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
+    }
+  } else if (effectiveUserResponses === 2) {
+    if (missingProfileInfo.length > 0) {
+      const missingStr = missingProfileInfo.join(', ');
+      contextReminder += `\n\nCONTEXT: Continue gathering business information. You still need to learn about: ${missingStr}. Ask about these missing details with contextually relevant quick replies.`;
+    } else {
+      contextReminder += '\n\nCONTEXT: Ask about target audience, business goals, or other relevant details. Generate contextually relevant quick replies. If showing categories, include "All of these" first and "Other" last.';
+    }
+  } else if (effectiveUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK && facebookConnected) {
     contextReminder += '\n\nCONTEXT: Facebook is connected! You can now ask if they want to generate posts. Include "Schedule FB Posts" or "Generate Posts" as a quick reply option.';
+  } else if (effectiveUserResponses >= 3 && missingProfileInfo.length > 0) {
+    // If we've asked several questions but still missing profile info, prioritize getting it
+    const missingStr = missingProfileInfo.join(', ');
+    contextReminder += `\n\nCONTEXT: You still need to gather important business information: ${missingStr}. Ask about these details before proceeding to post generation.`;
   }
 
   return contextReminder;
@@ -98,11 +132,13 @@ const SYSTEM_PROMPT = `You are a helpful AI Copilot assistant for HighLevel. You
 4. Help them generate content calendars and schedule social media posts
 
 CONVERSATION FLOW (Required):
-- Question 1: Ask about their industry/business type
-- Question 2: Ask about specific products/services they offer (provide relevant options based on their industry)
-- Question 3: Ask about target audience OR any other relevant business detail
+- Question 1: Ask about their industry/business type (if not already known)
+- Question 2: Ask about specific products/services they offer OR target audience (provide relevant options based on their industry)
+- Question 3: Ask about any missing business details (target audience, brand tone, content preferences, etc.)
 - Question 4 (MANDATORY): If Facebook is NOT connected, you MUST suggest connecting Facebook with "Connect Facebook" as a quick reply option
-- After Facebook connection: Continue gathering details or proceed to post generation
+- After Facebook connection: Continue gathering any missing details or proceed to post generation
+
+IMPORTANT: Always check what business information you already have before asking. Don't repeat questions about information that's already been shared. If business profile information is missing, prioritize gathering it before suggesting post generation.
 
 Be conversational and helpful, but ALWAYS suggest Facebook connection after 3-4 questions if not yet connected.
 
@@ -127,7 +163,7 @@ IMPORTANT DYNAMIC RULES:
    - Always include an "Other" option
 5. If asking about products/services or categories (like menu items, service types, etc.):
    - Generate relevant options based on their industry
-   - ALWAYS include "All of these" as the first option
+   - ALWAYS include "All of these" as the last option
    - Include 3-4 specific category options
    - Always include an "Other" option at the end
    - Example for restaurant: ["All of these", "Pizza & Pasta", "Burgers", "Desserts", "Other"]
@@ -194,11 +230,17 @@ router.post('/stream', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Add user message
-    conversationHistory.push({
-      role: 'user',
-      content: message
-    });
+    // Check if this is a trigger message (don't store it, but process it)
+    const trimmedMessage = message.trim().toLowerCase();
+    const isTriggerMessage = trimmedMessage === 'start' || trimmedMessage === '' || trimmedMessage === 'hello' || trimmedMessage === 'hi';
+
+    // Add user message to history (skip trigger messages like 'start')
+    if (!isTriggerMessage) {
+      conversationHistory.push({
+        role: 'user',
+        content: message
+      });
+    }
 
     // URL context removed - AI will generate industry options dynamically
 
@@ -221,12 +263,13 @@ router.post('/stream', async (req, res) => {
 
     // Add context to system message
     if (contextPrompt) {
-      conversationHistory[0].content = SYSTEM_PROMPT + contextPrompt;
+      conversationHistory[0].content = SYSTEM_PROMPT + contextPrompt + "\n\nUse smileys in post generation";
     }
 
-    // Add dynamic context reminder based on conversation history
+    // Add dynamic context reminder based on conversation history and business profile
+    // For trigger messages, treat as first interaction
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const contextReminder = buildContextReminder(conversationHistory, facebookConnected);
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile, isTriggerMessage);
     if (contextReminder) {
       conversationHistory.push({
         role: 'system',
@@ -391,11 +434,17 @@ router.post('/', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Add user message
-    conversationHistory.push({
-      role: 'user',
-      content: message
-    });
+    // Check if this is a trigger message (don't store it, but process it)
+    const trimmedMessage = message.trim().toLowerCase();
+    const isTriggerMessage = trimmedMessage === 'start' || trimmedMessage === '' || trimmedMessage === 'hello' || trimmedMessage === 'hi';
+
+    // Add user message to history (skip trigger messages like 'start')
+    if (!isTriggerMessage) {
+      conversationHistory.push({
+        role: 'user',
+        content: message
+      });
+    }
 
     // URL context removed - AI will generate industry options dynamically
 
@@ -421,9 +470,10 @@ router.post('/', async (req, res) => {
       conversationHistory[0].content = SYSTEM_PROMPT + contextPrompt;
     }
 
-    // Add dynamic context reminder based on conversation history
+    // Add dynamic context reminder based on conversation history and business profile
+    // For trigger messages, treat as first interaction
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const contextReminder = buildContextReminder(conversationHistory, facebookConnected);
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile, isTriggerMessage);
     if (contextReminder) {
       conversationHistory.push({
         role: 'system',

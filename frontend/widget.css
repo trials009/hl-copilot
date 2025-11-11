@@ -1532,6 +1532,93 @@ body {
     font-size: 14px;
 }
 
+/* Week Accordion Styles */
+.week-accordion {
+    margin-bottom: 16px;
+}
+
+.week-accordion-header {
+    background: #f9fafb;
+    padding: 14px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.2s ease;
+    border: 2px solid #e5e7eb;
+    margin-bottom: 8px;
+}
+
+.week-accordion-header:hover {
+    background: #f3f4f6;
+    border-color: #6938EF;
+}
+
+.week-accordion-header.expanded {
+    background: #ede9fe;
+    border-color: #6938EF;
+}
+
+.week-accordion-header .week-header-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 600;
+    color: #1f2937;
+    background: transparent;
+    padding: 0;
+    border-left: none;
+    margin: 0;
+}
+
+.week-number {
+    font-size: 16px;
+    color: #6938EF;
+    font-weight: 700;
+}
+
+.week-date-range {
+    font-size: 14px;
+    color: #6b7280;
+    flex: 1;
+}
+
+.week-post-count {
+    font-size: 13px;
+    color: #9ca3af;
+    background: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+}
+
+.week-accordion-icon {
+    font-size: 12px;
+    color: #6938EF;
+    transition: transform 0.2s ease;
+    margin-left: auto;
+}
+
+.week-accordion-header.expanded .week-accordion-icon {
+    transform: rotate(180deg);
+}
+
+.week-accordion-content {
+    padding: 0;
+    margin-top: 8px;
+    animation: slideDown 0.3s ease;
+    overflow: hidden;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        max-height: 0;
+    }
+    to {
+        opacity: 1;
+        max-height: 5000px;
+    }
+}
+
 .post-actions {
     display: flex;
     gap: 12px;
