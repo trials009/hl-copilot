@@ -4,6 +4,7 @@ const Groq = require('groq-sdk');
 const config = require('../../config/config');
 const { getBusinessProfile, updateBusinessProfile } = require('../utils/profileStorage');
 const { HTTP_STATUS, ERROR_MESSAGES, CONVERSATION_FLOW, QUICK_REPLY_LIMITS } = require('../constants');
+const { initializeState, updateState, getContextReminderForState } = require('../utils/conversationState');
 
 // Initialize Groq client
 const groq = config.ai.groq.apiKey ? new Groq({
@@ -14,135 +15,15 @@ const groq = config.ai.groq.apiKey ? new Groq({
 const conversations = new Map();
 
 /**
- * Build dynamic context prompt based on conversation history and user status
- * Consolidates all context logic into a single prompt function
+ * Build dynamic context prompt based on conversation state
+ * Uses LangGraph-based state machine for cleaner state management
  */
 function buildContextReminder(conversationHistory, facebookConnected, businessProfile = null, isTriggerMessage = false) {
-  const userMessages = conversationHistory.filter(msg => msg.role === 'user');
-  const assistantMessages = conversationHistory.filter(msg => msg.role === 'assistant');
-  const realUserResponses = userMessages.filter(msg => {
-    const trimmed = msg.content.trim().toLowerCase();
-    return trimmed && trimmed !== 'hello' && trimmed !== 'hi' && trimmed !== 'start' && trimmed.length >= 3;
-  }).length;
+  // Initialize state using state machine
+  const state = initializeState(businessProfile, conversationHistory, facebookConnected, isTriggerMessage);
 
-  // If this is a trigger message, treat as first interaction
-  const effectiveUserResponses = isTriggerMessage ? 0 : realUserResponses;
-
-  let contextReminder = '';
-
-  // Check if business profile information is missing
-  // Also check if the question was already asked in conversation history
-  const missingProfileInfo = [];
-
-  // Check if industry question was already asked
-  const industryAsked = assistantMessages.some(msg =>
-    msg.content.toLowerCase().includes('industry') ||
-    msg.content.toLowerCase().includes('what industry')
-  );
-
-  // Check if audience question was already asked
-  const audienceAsked = assistantMessages.some(msg =>
-    msg.content.toLowerCase().includes('target audience') ||
-    msg.content.toLowerCase().includes('ideal customers') ||
-    msg.content.toLowerCase().includes('who are your') ||
-    msg.content.toLowerCase().includes('who do you think')
-  );
-
-  // Check if tone question was already asked
-  const toneAsked = assistantMessages.some(msg =>
-    msg.content.toLowerCase().includes('tone') ||
-    msg.content.toLowerCase().includes('voice') ||
-    msg.content.toLowerCase().includes('brand personality')
-  );
-
-  // Check if questions were asked AND answered by looking at conversation order
-  // Find the position of the last question in the full conversation history
-  let lastIndustryQuestionPos = -1;
-  let lastAudienceQuestionPos = -1;
-  let lastToneQuestionPos = -1;
-
-  conversationHistory.forEach((msg, index) => {
-    if (msg.role === 'assistant') {
-      const content = msg.content.toLowerCase();
-      if (content.includes('industry') || content.includes('what industry')) {
-        lastIndustryQuestionPos = index;
-      }
-      if (content.includes('target audience') || content.includes('ideal customers') ||
-        content.includes('who are your') || content.includes('who do you think')) {
-        lastAudienceQuestionPos = index;
-      }
-      if (content.includes('tone') || content.includes('voice') || content.includes('brand personality')) {
-        lastToneQuestionPos = index;
-      }
-    }
-  });
-
-  // Check if there's a user message after each question
-  const userResponseAfterIndustry = lastIndustryQuestionPos >= 0 &&
-    conversationHistory.slice(lastIndustryQuestionPos + 1).some(msg => msg.role === 'user');
-  const userResponseAfterAudience = lastAudienceQuestionPos >= 0 &&
-    conversationHistory.slice(lastAudienceQuestionPos + 1).some(msg => msg.role === 'user');
-  const userResponseAfterTone = lastToneQuestionPos >= 0 &&
-    conversationHistory.slice(lastToneQuestionPos + 1).some(msg => msg.role === 'user');
-
-  if (!businessProfile || !businessProfile.industry) {
-    // Only ask if never asked, or asked but no user response yet
-    if (!industryAsked || (industryAsked && !userResponseAfterIndustry)) {
-      missingProfileInfo.push('industry');
-    }
-  }
-  if (!businessProfile || !businessProfile.audience) {
-    // Only ask if never asked, or asked but no user response yet
-    // Also check if audience was already extracted from conversation
-    if (!audienceAsked || (audienceAsked && !userResponseAfterAudience)) {
-      missingProfileInfo.push('target audience');
-    }
-  }
-  if (!businessProfile || !businessProfile.tone) {
-    // Only ask if never asked, or asked but no user response yet
-    if (!toneAsked || (toneAsked && !userResponseAfterTone)) {
-      missingProfileInfo.push('brand tone/voice');
-    }
-  }
-
-  // Check if Facebook connection is required
-  if (effectiveUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK &&
-    !facebookConnected &&
-    !conversationHistory.some(msg => msg.role === 'assistant' && msg.content.toLowerCase().includes('connect facebook'))) {
-    contextReminder += '\n\n🚨 CRITICAL: The user has answered multiple questions but Facebook is NOT connected. You MUST now ask them to connect their Facebook account. Include "Connect Facebook" as a quick reply option.';
-  }
-
-  // Add conversation stage context with business profile awareness
-  if (effectiveUserResponses === 0) {
-    if (missingProfileInfo.includes('industry')) {
-      contextReminder += '\n\nCONTEXT: This is the first interaction. Start with a friendly greeting like "Hope you are doing well! How can I help you today?" Then immediately ask "What industry are you in?" to understand their business. Generate 4-5 diverse industry quick reply options such as: Restaurant & Food, Fitness & Health, E-commerce, Professional Services, Beauty & Wellness, Education & Training, Real Estate, Technology & Software. Always include an "Other" option as the last option.';
-    } else {
-      contextReminder += '\n\nCONTEXT: This is the first interaction. Start with a friendly greeting like "Hope you are doing well! How can I help you today?" The user\'s industry is known, but you should gather more business information. Ask about their specific products/services or target audience.';
-    }
-  } else if (effectiveUserResponses === 1) {
-    if (missingProfileInfo.includes('industry')) {
-      contextReminder += '\n\nCONTEXT: The user hasn\'t shared their industry yet. Ask "What industry are you in?" and generate 4-5 diverse industry quick reply options. Always include an "Other" option.';
-    } else if (missingProfileInfo.includes('target audience')) {
-      contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their target audience or specific products/services. Generate relevant options based on their industry. IMPORTANT: If asking about products/services, start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
-    } else {
-      contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their specific products/services. Generate relevant options based on their industry. IMPORTANT: Start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
-    }
-  } else if (effectiveUserResponses === 2) {
-    if (missingProfileInfo.length > 0) {
-      const missingStr = missingProfileInfo.join(', ');
-      contextReminder += `\n\nCONTEXT: Continue gathering business information. You still need to learn about: ${missingStr}. Ask about these missing details with contextually relevant quick replies.`;
-    } else {
-      contextReminder += '\n\nCONTEXT: Ask about target audience, business goals, or other relevant details. Generate contextually relevant quick replies. If showing categories, include "All of these" first and "Other" last.';
-    }
-  } else if (effectiveUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK && facebookConnected) {
-    contextReminder += '\n\nCONTEXT: Facebook is connected! You can now ask if they want to generate posts. Include "Schedule FB Posts" or "Generate Posts" as a quick reply option.';
-  } else if (effectiveUserResponses >= 3 && missingProfileInfo.length > 0) {
-    // If we've asked several questions but still missing profile info, prioritize getting it
-    const missingStr = missingProfileInfo.join(', ');
-    contextReminder += `\n\nCONTEXT: You still need to gather important business information: ${missingStr}. Ask about these details before proceeding to post generation.`;
-  }
-
-  return contextReminder;
+  // Get context reminder based on current state
+  return getContextReminderForState(state);
 }
 
 /**
@@ -150,12 +31,14 @@ function buildContextReminder(conversationHistory, facebookConnected, businessPr
  * Looks for "QUICK_REPLIES:" prefix followed by JSON array
  */
 function parseQuickReplies(response) {
-  // Look for QUICK_REPLIES: followed by a JSON array (handle multiline)
+  // Look for QUICK_REPLIES: followed by a JSON array (handle multiline and case-insensitive)
   const lines = response.split('\n');
   let quickRepliesStartIndex = -1;
 
+  // Find the line containing QUICK_REPLIES (case-insensitive)
   for (let i = 0; i < lines.length; i++) {
-    if (lines[i].trim().toUpperCase().startsWith('QUICK_REPLIES:')) {
+    const trimmedLine = lines[i].trim();
+    if (trimmedLine.toUpperCase().startsWith('QUICK_REPLIES:')) {
       quickRepliesStartIndex = i;
       break;
     }
@@ -164,24 +47,40 @@ function parseQuickReplies(response) {
   if (quickRepliesStartIndex !== -1) {
     // Extract everything from QUICK_REPLIES: onwards
     const quickRepliesSection = lines.slice(quickRepliesStartIndex).join('\n');
-    const match = quickRepliesSection.match(/QUICK_REPLIES:\s*(\[[\s\S]*\])/i);
+    // Match QUICK_REPLIES: followed by JSON array (handle multiline, whitespace)
+    const match = quickRepliesSection.match(/QUICK_REPLIES:\s*(\[[\s\S]*?\])/i);
 
     if (match) {
       try {
         const quickReplies = JSON.parse(match[1]);
-        // Remove quick replies section from response text
+        // Remove quick replies section from response text (everything from QUICK_REPLIES line onwards)
         const cleanedResponse = lines.slice(0, quickRepliesStartIndex).join('\n').trim();
-        return { quickReplies, cleanedResponse };
+        // Also remove any trailing QUICK_REPLIES text that might appear
+        const finalCleaned = cleanedResponse.replace(/\s*QUICK_REPLIES:.*$/is, '').trim();
+        return { quickReplies, cleanedResponse: finalCleaned };
       } catch (e) {
         console.error('Error parsing quick replies JSON:', e);
-        // Try fallback extraction
+        // Try fallback extraction using regex
         const fallbackMatch = match[1].match(/"([^"]+)"/g);
         if (fallbackMatch) {
           const quickReplies = fallbackMatch.map(item => item.replace(/"/g, ''));
           const cleanedResponse = lines.slice(0, quickRepliesStartIndex).join('\n').trim();
-          return { quickReplies, cleanedResponse };
+          const finalCleaned = cleanedResponse.replace(/\s*QUICK_REPLIES:.*$/is, '').trim();
+          return { quickReplies, cleanedResponse: finalCleaned };
         }
       }
+    }
+  }
+
+  // Also check if QUICK_REPLIES appears inline (not on a new line)
+  const inlineMatch = response.match(/QUICK_REPLIES:\s*(\[[\s\S]*?\])/i);
+  if (inlineMatch) {
+    try {
+      const quickReplies = JSON.parse(inlineMatch[1]);
+      const cleanedResponse = response.replace(/QUICK_REPLIES:\s*\[[\s\S]*?\]/i, '').trim();
+      return { quickReplies, cleanedResponse };
+    } catch (e) {
+      console.error('Error parsing inline quick replies:', e);
     }
   }
 
@@ -294,17 +193,16 @@ router.post('/stream', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Check if this is a trigger message (don't store it, but process it)
-    const trimmedMessage = message.trim().toLowerCase();
-    const isTriggerMessage = trimmedMessage === 'start' || trimmedMessage === '' || trimmedMessage === 'hello' || trimmedMessage === 'hi';
+    // Determine if this is a meaningful message (not just a greeting/trigger)
+    // Store all messages, but mark very short/greeting messages for special handling
+    const trimmedMessage = message.trim();
+    const isTriggerMessage = trimmedMessage.length <= 2 || /^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmedMessage);
 
-    // Add user message to history (skip trigger messages like 'start')
-    if (!isTriggerMessage) {
-      conversationHistory.push({
-        role: 'user',
-        content: message
-      });
-    }
+    // Always add to history, but state machine will handle greeting detection
+    conversationHistory.push({
+      role: 'user',
+      content: message
+    });
 
     // URL context removed - AI will generate industry options dynamically
 
@@ -454,8 +352,19 @@ router.post('/stream', async (req, res) => {
       content: cleanedResponse
     });
 
-    // Extract business information if mentioned
-    extractBusinessInfo(message, fullResponse, userId || sessionId);
+    // Extract business information if mentioned (async, don't await to avoid blocking)
+    extractBusinessInfo(message, fullResponse, userId || sessionId, conversationHistory).catch(err => {
+      console.error('Background business info extraction error:', err);
+    });
+
+    // Update conversation state after processing
+    const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
+    const updatedState = updateState(
+      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected, isTriggerMessage),
+      updatedBusinessProfile,
+      conversationHistory
+    );
+    // State is now updated and will be used in next interaction
 
     // Close the stream
     res.write(`data: [DONE]\n\n`);
@@ -498,17 +407,16 @@ router.post('/', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Check if this is a trigger message (don't store it, but process it)
-    const trimmedMessage = message.trim().toLowerCase();
-    const isTriggerMessage = trimmedMessage === 'start' || trimmedMessage === '' || trimmedMessage === 'hello' || trimmedMessage === 'hi';
+    // Determine if this is a meaningful message (not just a greeting/trigger)
+    // Store all messages, but mark very short/greeting messages for special handling
+    const trimmedMessage = message.trim();
+    const isTriggerMessage = trimmedMessage.length <= 2 || /^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmedMessage);
 
-    // Add user message to history (skip trigger messages like 'start')
-    if (!isTriggerMessage) {
-      conversationHistory.push({
-        role: 'user',
-        content: message
-      });
-    }
+    // Always add to history, but state machine will handle greeting detection
+    conversationHistory.push({
+      role: 'user',
+      content: message
+    });
 
     // URL context removed - AI will generate industry options dynamically
 
@@ -572,8 +480,19 @@ router.post('/', async (req, res) => {
       content: cleanedResponse
     });
 
-    // Extract business information if mentioned
-    extractBusinessInfo(message, cleanedResponse, userId || sessionId);
+    // Extract business information if mentioned (async, don't await to avoid blocking)
+    extractBusinessInfo(message, cleanedResponse, userId || sessionId, conversationHistory).catch(err => {
+      console.error('Background business info extraction error:', err);
+    });
+
+    // Update conversation state after processing
+    const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
+    const updatedState = updateState(
+      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected, isTriggerMessage),
+      updatedBusinessProfile,
+      conversationHistory
+    );
+    // State is now updated and will be used in next interaction
 
     // Return response
     res.json({
@@ -592,71 +511,114 @@ router.post('/', async (req, res) => {
 });
 
 /**
- * Extract business information from conversation
+ * Extract business information from conversation using LLM
+ * Uses Groq to intelligently parse conversation and extract structured business profile data
  */
-function extractBusinessInfo(userMessage, assistantMessage, userId) {
+async function extractBusinessInfo(userMessage, assistantMessage, userId, conversationHistory = []) {
+  if (!groq) {
+    console.warn('Groq not configured, skipping business info extraction');
+    return;
+  }
+
   const profile = getBusinessProfile(userId) || {};
 
-  // Simple keyword extraction (in production, use more sophisticated NLP)
-  const industryKeywords = ['industry', 'business type', 'niche', 'sector'];
-  const audienceKeywords = ['audience', 'target', 'customers', 'clients', 'demographic'];
-  const toneKeywords = ['tone', 'voice', 'style', 'personality'];
-  const contentKeywords = ['content', 'posts', 'topics', 'themes'];
+  // Only extract missing information to avoid unnecessary LLM calls
+  const missingFields = [];
+  if (!profile.industry) missingFields.push('industry');
+  if (!profile.productsServices) missingFields.push('productsServices');
+  if (!profile.audience) missingFields.push('audience');
+  if (!profile.tone) missingFields.push('tone');
+  if (!profile.contentPreferences) missingFields.push('contentPreferences');
 
-  const message = (userMessage + ' ' + assistantMessage).toLowerCase();
-
-  // Extract industry
-  if (!profile.industry) {
-    const industryMatch = message.match(/(?:industry|business type|niche|sector)[:\s]+([^.,!?]+)/i);
-    if (industryMatch) {
-      profile.industry = industryMatch[1].trim();
-    }
+  if (missingFields.length === 0) {
+    return; // Nothing to extract
   }
 
-  // Extract audience - improved detection
-  if (!profile.audience) {
-    // First try explicit pattern
-    let audienceMatch = message.match(/(?:target audience|customers|clients|ideal customers)[:\s]+([^.,!?]+)/i);
-    if (audienceMatch) {
-      profile.audience = audienceMatch[1].trim();
-    } else {
-      // If assistant asked about audience and user responded, extract from user message
-      // Common audience responses: professionals, families, students, retirees, etc.
-      const audiencePatterns = [
-        /(?:young professionals|professionals|families|students|retirees|parents|seniors|millennials|gen z|gen x|baby boomers)/i,
-        /(?:business owners|entrepreneurs|small business|enterprise|b2b|b2c)/i,
-        /(?:fitness enthusiasts|health conscious|tech savvy|creative professionals)/i
-      ];
+  try {
+    // Build context from recent conversation
+    const recentMessages = conversationHistory.slice(-6).map(msg =>
+      `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`
+    ).join('\n');
 
-      for (const pattern of audiencePatterns) {
-        const match = userMessage.match(pattern);
-        if (match) {
-          profile.audience = match[0].trim();
-          break;
+    const extractionPrompt = `You are a business information extraction assistant. Analyze the conversation below and extract business profile information.
+
+Current conversation context:
+${recentMessages}
+
+Latest exchange:
+Assistant: ${assistantMessage}
+User: ${userMessage}
+
+Extract the following information from the conversation (ONLY if clearly mentioned):
+${missingFields.map(field => `- ${field}: Extract the ${field} if the user mentioned it`).join('\n')}
+
+Return ONLY a valid JSON object with the extracted information. Use null for fields that cannot be determined.
+Example format:
+{
+  "industry": "Restaurant & Food" or null,
+  "productsServices": "Burgers, Salads, Desserts" or null,
+  "audience": "Young Professionals" or null,
+  "tone": "Friendly and Casual" or null,
+  "contentPreferences": "Food photography, recipes" or null
+}
+
+IMPORTANT:
+- Only extract information that is EXPLICITLY mentioned or clearly implied
+- If the user mentions "Burgers" when asked about products, extract "Burgers" or similar
+- If the user says "Young professionals" when asked about audience, extract that
+- If information is not clear, use null
+- Return ONLY the JSON object, no other text`;
+
+    const completion = await groq.chat.completions.create({
+      messages: [
+        {
+          role: 'system',
+          content: 'You are a precise information extraction assistant. Extract only explicitly mentioned business information and return valid JSON.'
+        },
+        {
+          role: 'user',
+          content: extractionPrompt
         }
-      }
+      ],
+      model: 'llama-3.1-8b-instant', // Use fast model for extraction
+      temperature: 0.1, // Low temperature for consistent extraction
+      max_tokens: 300
+    });
 
-      // If still not found, check if assistant message contains audience question
-      // and user message is a direct answer (not a question)
-      if (!profile.audience && assistantMessage.toLowerCase().includes('audience') &&
-        !userMessage.includes('?') && userMessage.length > 3 && userMessage.length < 50) {
-        // Likely a direct answer to audience question
-        profile.audience = userMessage.trim();
+    const response = completion.choices[0].message.content.trim();
+
+    // Parse JSON response (handle markdown code blocks if present)
+    let extractedData;
+    try {
+      // Try to extract JSON from markdown code blocks
+      const jsonMatch = response.match(/```(?:json)?\s*(\{[\s\S]*\})\s*```/);
+      if (jsonMatch) {
+        extractedData = JSON.parse(jsonMatch[1]);
+      } else {
+        extractedData = JSON.parse(response);
+      }
+    } catch (parseError) {
+      console.error('Error parsing LLM extraction response:', parseError);
+      console.error('Response was:', response);
+      return; // Skip extraction if JSON is invalid
+    }
+
+    // Update profile with extracted information (only non-null values)
+    const updates = {};
+    for (const field of missingFields) {
+      if (extractedData[field] && extractedData[field] !== null && extractedData[field] !== 'null') {
+        updates[field] = extractedData[field];
       }
     }
-  }
 
-  // Extract tone
-  if (!profile.tone) {
-    const toneMatch = message.match(/(?:tone|voice|style)[:\s]+([^.,!?]+)/i);
-    if (toneMatch) {
-      profile.tone = toneMatch[1].trim();
+    if (Object.keys(updates).length > 0) {
+      Object.assign(profile, updates);
+      updateBusinessProfile(userId, profile);
+      console.log('Business profile updated:', updates);
     }
-  }
-
-  // Update profile if any changes
-  if (Object.keys(profile).length > 0) {
-    updateBusinessProfile(userId, profile);
+  } catch (error) {
+    console.error('Error extracting business info with LLM:', error);
+    // Fail silently - don't break the conversation flow
   }
 }
 
