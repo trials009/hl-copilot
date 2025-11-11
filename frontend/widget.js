@@ -54,12 +54,12 @@ class CopilotWidget {
         // Use consistent userId for session persistence (already set in constructor)
         const storageKey = `copilot_session_${this.userId}`;
         let sessionId = localStorage.getItem(storageKey);
-        
+
         if (!sessionId) {
             sessionId = this.generateSessionId();
             localStorage.setItem(storageKey, sessionId);
         }
-        
+
         return sessionId;
     }
 
@@ -67,13 +67,13 @@ class CopilotWidget {
         try {
             // Wait a bit to ensure DOM is ready
             await new Promise(resolve => setTimeout(resolve, 100));
-            
+
             const response = await fetch(`${this.apiUrl}/api/chat/history/${this.sessionId}`);
             if (!response.ok) {
                 // No history - show welcome message
                 return;
             }
-            
+
             const data = await response.json();
             if (data.history && data.history.length > 0) {
                 const messagesContainer = document.getElementById('chat-messages');
@@ -82,22 +82,21 @@ class CopilotWidget {
                     setTimeout(() => this.loadConversationHistory(), 200);
                     return;
                 }
-                
+
                 // Clear any existing messages (including welcome message if it was shown)
                 messagesContainer.innerHTML = '';
-                
-                // Restore messages from history, filtering out trigger messages
+
+                // Restore messages from history
                 data.history.forEach((msg) => {
                     if (msg.role === 'user' || msg.role === 'assistant') {
-                        // Skip "start" trigger message and empty messages
-                        const content = msg.content.trim().toLowerCase();
-                        if (content === 'start' || content === '' || content === 'hello' || content === 'hi') {
-                            return; // Skip trigger messages
+                        // Only skip empty messages - let backend/LLM handle all other logic
+                        if (msg.content.trim() === '') {
+                            return;
                         }
                         this.addMessage(msg.role, msg.content, false);
                     }
                 });
-                
+
                 // Scroll to bottom after loading
                 setTimeout(() => {
                     this.scrollToBottom(false);
@@ -107,7 +106,7 @@ class CopilotWidget {
                         el.style.whiteSpace = 'pre-wrap';
                     });
                 }, 100);
-                
+
                 // Return true to indicate history was loaded
                 return true;
             }
@@ -127,25 +126,25 @@ class CopilotWidget {
         } catch (error) {
             console.error('Error clearing conversation history:', error);
         }
-        
+
         // Generate new sessionId and store it
         const storageKey = `copilot_session_${this.userId}`;
         this.sessionId = this.generateSessionId();
         localStorage.setItem(storageKey, this.sessionId);
-        
+
         // Clear messages from UI
         const messagesContainer = document.getElementById('chat-messages');
         if (messagesContainer) {
             messagesContainer.innerHTML = '';
         }
-        
+
         // Reset conversation context
         this.conversationContext = {
             industry: null,
             businessType: null,
             lastQuestion: null
         };
-        
+
         // Show initial greeting
         this.showChatScreen(true);
     }
@@ -298,11 +297,15 @@ class CopilotWidget {
     }
 
     async sendWelcomeMessage() {
-        // Send a trigger message to get AI welcome message with industry question
-        // The AI will respond with greeting and ask about industry
+        // Send an empty message to trigger AI welcome message with industry question
+        // The backend state machine will detect first interaction and generate appropriate greeting
         const input = document.getElementById('chat-input');
         if (input) {
-            input.value = 'start';
+            // Send empty string - backend will handle first interaction detection
+            input.value = '';
+            // Actually, let's just trigger the AI by sending a simple greeting
+            // The backend state machine will recognize this as first interaction
+            input.value = 'Hi';
             await this.sendMessage();
         }
     }
@@ -421,53 +424,34 @@ class CopilotWidget {
         console.log('Quick reply clicked:', reply);
         const input = document.getElementById('chat-input');
         if (input) {
-            const replyLower = reply.toLowerCase();
-            console.log('Reply lowercase:', replyLower);
+            // Remove quick replies UI
+            const quickReplyContainers = document.querySelectorAll('.quick-replies-container');
+            quickReplyContainers.forEach(container => container.remove());
+            // Hide suggestion text
+            const suggestionText = document.getElementById('chat-suggestion-text');
+            if (suggestionText) {
+                suggestionText.style.display = 'none';
+            }
 
-            // Handle special quick reply actions with flexible matching
-
-            // Facebook connection actions
-            if (replyLower.includes('connect') && replyLower.includes('facebook')) {
-                console.log('Detected Connect Facebook - connecting directly');
-                // Remove quick replies
-                const quickReplyContainers = document.querySelectorAll('.quick-replies-container');
-                quickReplyContainers.forEach(container => container.remove());
-                // Hide suggestion text
-                const suggestionText = document.getElementById('chat-suggestion-text');
-                if (suggestionText) {
-                    suggestionText.style.display = 'none';
-                }
-
-                // Connect Facebook directly without showing connection screen
-                this.connectFacebook();
+            // Handle special actions directly
+            const normalizedReply = reply.toLowerCase().trim();
+            if (normalizedReply.includes('connect') && normalizedReply.includes('facebook')) {
+                // Directly trigger Facebook connection
+                // Call immediately to maintain user gesture context for popup
+                this.connectFacebook().catch(error => {
+                    console.error('Error in connectFacebook:', error);
+                    this.showToast('Failed to connect Facebook. Please try again.', 'error');
+                });
+                return;
+            }
+            
+            if (normalizedReply.includes('generate') && (normalizedReply.includes('calendar') || normalizedReply.includes('posts'))) {
+                // Directly trigger calendar generation
+                this.generateCalendarInline();
                 return;
             }
 
-            // Calendar/Post generation actions
-            if ((replyLower.includes('generate') && (replyLower.includes('calendar') || replyLower.includes('post'))) ||
-                (replyLower.includes('schedule') && replyLower.includes('post')) ||
-                replyLower.includes('create calendar')) {
-                // Check if Facebook is connected first
-                if (!this.facebookConnected) {
-                    this.addMessage('assistant', 'I\'d be happy to help you generate posts! First, let me connect your Facebook account so we can schedule them.');
-                    setTimeout(() => {
-                        this.connectFacebook();
-                    }, 1000);
-                } else {
-                    // Generate calendar and show posts inline in chat
-                    this.generateCalendarInline();
-                }
-                return;
-            }
-
-            // Skip/dismiss actions
-            if (replyLower === 'skip for now' || replyLower === 'not yet' ||
-                replyLower === 'skip' || replyLower === 'maybe later') {
-                // Continue conversation - don't send message, just remove quick replies
-                return;
-            }
-
-            // Regular quick reply - send as message
+            // Send reply as a regular message - let backend/LLM handle all action detection
             input.value = reply;
             this.sendMessage();
         }
@@ -532,54 +516,13 @@ class CopilotWidget {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
 
-        // Allow empty message for welcome trigger
-        if (!message && this.currentScreen !== 'chat') {
+        // Don't send empty messages
+        if (!message) {
             return;
         }
 
-        // For welcome message, use a special trigger
-        const messagesContainer = document.getElementById('chat-messages');
-        const hasMessages = messagesContainer && messagesContainer.children.length > 0;
-        const messageToSend = message || (hasMessages ? '' : 'start'); // Use 'start' as trigger for first message
-
-        // Check if user wants to generate posts and Facebook is not connected
-        const messageLower = message.toLowerCase();
-        if ((messageLower.includes('generate') && messageLower.includes('post')) ||
-            messageLower.includes('generate posts') ||
-            messageLower.includes('create calendar')) {
-            // Check Facebook connection first
-            if (!this.facebookConnected) {
-                this.addMessage('user', message);
-                input.value = '';
-                this.addMessage('assistant', 'I\'d be happy to help you generate posts! First, let me connect your Facebook account so we can schedule them. Let me set that up for you...');
-                setTimeout(() => {
-                    this.showConnectionScreen();
-                }, 1000);
-                return;
-            }
-        }
-
-        // Track conversation context
-        if (messageLower.includes('restaurant') || messageLower.includes('food') || messageLower.includes('bakery') ||
-            messageLower.includes('cafe') || messageLower.includes('italian') || messageLower.includes('mexican')) {
-            if (!this.conversationContext.industry) {
-                this.conversationContext.industry = 'Restaurant & Food';
-            }
-            if (messageLower.includes('bakery')) {
-                this.conversationContext.businessType = 'Bakery';
-            } else if (messageLower.includes('cafe') || messageLower.includes('coffee')) {
-                this.conversationContext.businessType = 'Cafe';
-            } else if (messageLower.includes('italian')) {
-                this.conversationContext.businessType = 'Italian Restaurant';
-            } else if (messageLower.includes('mexican')) {
-                this.conversationContext.businessType = 'Mexican Restaurant';
-            }
-        }
-
-        // Add user message to chat (skip if it's the welcome trigger)
-        if (messageToSend !== 'start') {
-            this.addMessage('user', messageToSend);
-        }
+        // Add user message to chat
+        this.addMessage('user', message);
         input.value = '';
 
         // Disable input while processing
@@ -601,7 +544,7 @@ class CopilotWidget {
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    message: messageToSend,
+                    message: message,
                     sessionId: this.sessionId,
                     userId: this.userId,
                     url: window.location.href,
@@ -762,6 +705,33 @@ class CopilotWidget {
     }
 
     async connectFacebook() {
+        // Open blank popup immediately to maintain user gesture context
+        // This prevents popup blockers from blocking the window
+        const authWindow = window.open(
+            'about:blank',
+            'Facebook Login',
+            'width=600,height=700,scrollbars=yes,resizable=yes,status=yes'
+        );
+
+        // Check if popup was blocked immediately
+        if (!authWindow || authWindow.closed || typeof authWindow.closed === 'undefined') {
+            this.showToast('Popup blocked. Please allow popups for this site and try again.', 'error');
+            // Fallback: open in same window
+            const useSameWindow = confirm('Popup was blocked. Would you like to open Facebook connection in this window instead?');
+            if (useSameWindow) {
+                try {
+                    const response = await this.fetchWithRetry(`${this.apiUrl}/api/facebook/auth-url?userId=${this.userId}`);
+                    const data = await response.json();
+                    if (data.authUrl) {
+                        window.location.href = data.authUrl;
+                    }
+                } catch (error) {
+                    this.showToast('Failed to get Facebook auth URL.', 'error');
+                }
+            }
+            return;
+        }
+
         try {
             this.showLoading('Connecting to Facebook...');
 
@@ -769,12 +739,8 @@ class CopilotWidget {
             const data = await response.json();
 
             if (data.authUrl) {
-                // Open Facebook OAuth in new window
-                const authWindow = window.open(
-                    data.authUrl,
-                    'Facebook Login',
-                    'width=600,height=700,scrollbars=yes'
-                );
+                // Update the already-opened window with the auth URL
+                authWindow.location.href = data.authUrl;
 
                 if (data.mock) {
                     this.showToast('Opening Facebook connection (Demo Mode)', 'info');
@@ -789,22 +755,31 @@ class CopilotWidget {
                     checkCount++;
 
                     // Check if window is closed or timeout reached
-                    if (authWindow.closed || checkCount >= maxChecks) {
-                        clearInterval(checkClosed);
-                        this.hideLoading();
+                    try {
+                        if (authWindow.closed || checkCount >= maxChecks) {
+                            clearInterval(checkClosed);
+                            this.hideLoading();
 
-                        if (checkCount >= maxChecks) {
-                            console.warn('Facebook OAuth popup check timeout');
-                            this.showToast('Connection timeout. Please try again.', 'error');
+                            if (checkCount >= maxChecks) {
+                                console.warn('Facebook OAuth popup check timeout');
+                                this.showToast('Connection timeout. Please try again.', 'error');
+                            }
+
+                            this.checkFacebookConnection();
+
+                            // Don't call showChatScreen() here - it resets the conversation
+                            // The message handler will show the success toast and preserve conversation
+                            // If we're not in chat screen, navigate back to chat without resetting
+                            if (this.currentScreen !== 'chat') {
+                                this.showChatScreen(false); // false = don't show welcome message
+                            }
                         }
-
-                        this.checkFacebookConnection();
-
-                        // Don't call showChatScreen() here - it resets the conversation
-                        // The message handler will show the success toast and preserve conversation
-                        // If we're not in chat screen, navigate back to chat without resetting
-                        if (this.currentScreen !== 'chat') {
-                            this.showChatScreen(false); // false = don't show welcome message
+                    } catch (e) {
+                        // Cross-origin error - window might be navigating
+                        if (checkCount >= maxChecks) {
+                            clearInterval(checkClosed);
+                            this.hideLoading();
+                            this.checkFacebookConnection();
                         }
                     }
                 }, 500);
@@ -863,26 +838,26 @@ class CopilotWidget {
         // Group posts by 7-day weeks starting from today
         const today = new Date();
         today.setHours(0, 0, 0, 0); // Start of today
-        
+
         const weeks = [];
         const weekMap = new Map(); // Map to track which week each post belongs to
-        
+
         posts.forEach((post, index) => {
             const postDate = new Date(post.date);
             postDate.setHours(0, 0, 0, 0);
-            
+
             // Calculate days from today
             const daysFromToday = Math.floor((postDate - today) / (1000 * 60 * 60 * 24));
-            
+
             // Determine which week (0-indexed, 7 days per week)
             const weekIndex = Math.floor(daysFromToday / 7);
-            
+
             if (!weekMap.has(weekIndex)) {
                 weekMap.set(weekIndex, []);
             }
             weekMap.get(weekIndex).push({ ...post, index });
         });
-        
+
         // Convert map to sorted array of weeks
         const sortedWeekIndices = Array.from(weekMap.keys()).sort((a, b) => a - b);
         sortedWeekIndices.forEach(weekIndex => {
@@ -894,7 +869,7 @@ class CopilotWidget {
             if (weekPosts.length === 0) return;
 
             const weekNum = weekIndex + 1;
-            
+
             // Calculate week start and end dates (7 days starting from today)
             const today = new Date();
             today.setHours(0, 0, 0, 0);
@@ -902,7 +877,7 @@ class CopilotWidget {
             weekStartDate.setDate(today.getDate() + (weekIndex * 7));
             const weekEndDate = new Date(weekStartDate);
             weekEndDate.setDate(weekStartDate.getDate() + 6);
-            
+
             // Use calculated week dates for display (always 7 days per week)
             const firstDate = weekStartDate;
             const lastDate = weekEndDate;
@@ -911,11 +886,11 @@ class CopilotWidget {
             const accordionContainer = document.createElement('div');
             accordionContainer.className = 'message assistant week-accordion';
             accordionContainer.dataset.weekNum = weekNum;
-            
+
             // Create message content wrapper (to match message structure)
             const messageContent = document.createElement('div');
             messageContent.className = 'message-content week-accordion-wrapper';
-            
+
             // Week header (clickable)
             const weekHeader = document.createElement('div');
             weekHeader.className = 'week-accordion-header';
@@ -927,22 +902,22 @@ class CopilotWidget {
                     <span class="week-accordion-icon">▼</span>
                 </div>
             `;
-            
+
             // Week content (collapsed by default)
             const weekContent = document.createElement('div');
             weekContent.className = 'week-accordion-content';
             weekContent.style.display = 'none'; // Collapsed by default
-            
+
             // Create a container for posts to ensure proper layout
             const postsContainer = document.createElement('div');
             postsContainer.className = 'week-posts-container';
-            
+
             // Add posts to week content
             weekPosts.forEach(post => {
                 const postMessage = this.createPostMessage(post, post.index);
                 postsContainer.appendChild(postMessage);
             });
-            
+
             weekContent.appendChild(postsContainer);
 
             // Toggle functionality
@@ -954,7 +929,7 @@ class CopilotWidget {
                     icon.textContent = isExpanded ? '▼' : '▲';
                 }
                 weekHeader.classList.toggle('expanded', !isExpanded);
-                
+
                 // Scroll to show the expanded content
                 if (!isExpanded) {
                     setTimeout(() => {

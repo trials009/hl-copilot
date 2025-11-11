@@ -274,20 +274,29 @@ body {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 10px 10px 10px 10px;
+    padding: 4px 4px 4px 4px;
     /* Match header left padding to align messages with copilot icon */
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 4px;
     min-height: 0;
+}
+
+/* Reduce gap for accordion messages */
+.chat-messages .week-accordion {
+    margin-top: 0 !important;
+    margin-bottom: 2px !important;
+    gap: 0 !important;
 }
 
 .message {
     display: flex;
-    gap: 12px;
+    gap: 8px;
     opacity: 0;
     transform: translateY(10px) scale(0.95);
     animation: messageEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    margin: 0;
+    padding: 0;
 }
 
 .message-enter {
@@ -355,7 +364,7 @@ body {
 
 .message-content {
     max-width: 70%;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 12px;
     line-height: 1.5;
     font-size: 14px;
@@ -390,8 +399,8 @@ body {
 }
 
 .chat-input-container {
-    padding: 10px 10px 8px 10px;
-    /* Top and left padding match chat messages (10px) to align with content */
+    padding: 8px 8px 6px 8px;
+    /* Top and left padding match chat messages (8px) to align with content */
     border-top: 1px solid #e5e7eb;
     background: #ffffff;
     position: sticky;
@@ -762,9 +771,10 @@ body {
 .hashtag {
     background: #ede9fe;
     color: #7c3aed;
-    padding: 2px 8px;
-    border-radius: 4px;
-    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .calendar-item-actions {
@@ -1413,15 +1423,15 @@ body {
 
 /* Inline Post Messages in Chat */
 .post-message {
-    margin-bottom: 16px;
+    margin-bottom: 8px;
 }
 
 .post-card {
     background: white;
     border: 2px solid #e5e7eb;
     border-radius: 12px;
-    padding: 16px;
-    margin: 8px 0;
+    padding: 12px;
+    margin: 4px 0;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
     transition: all 0.2s;
 }
@@ -1435,9 +1445,14 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
     border-bottom: 1px solid #e5e7eb;
+}
+
+.week-accordion-content .post-header {
+    margin-bottom: 4px !important;
+    padding-bottom: 4px !important;
 }
 
 .post-date {
@@ -1459,35 +1474,52 @@ body {
     font-size: 16px;
     font-weight: 600;
     color: #1f2937;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
+}
+
+.week-accordion-content .post-theme {
+    margin-bottom: 4px !important;
 }
 
 .post-caption {
     color: #4b5563;
     font-size: 14px;
     line-height: 1.6;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+.week-accordion-content .post-caption {
+    margin-bottom: 4px !important;
 }
 
 .post-hashtags {
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin-bottom: 12px;
+    margin-bottom: 8px;
+}
+
+.week-accordion-content .post-hashtags {
+    margin-bottom: 4px !important;
 }
 
 .post-actions-inline {
     display: flex;
     gap: 6px;
-    margin-top: 12px;
-    padding-top: 12px;
+    margin-top: 8px;
+    padding-top: 8px;
     border-top: 1px solid #e5e7eb;
     justify-content: flex-start;
 }
 
+.week-accordion-content .post-actions-inline {
+    margin-top: 4px !important;
+    padding-top: 4px !important;
+}
+
 .post-actions-inline button {
     flex: 0 0 auto;
-    padding: 6px 10px;
+    padding: 5px 9px;
     border: none;
     border-radius: 6px;
     font-size: 11px;
@@ -1511,15 +1543,14 @@ body {
 }
 
 .btn-schedule-inline {
-    background: var(--hl-primary);
+    background: #3b82f6;
     color: white;
     padding: 5px 9px;
     font-size: 11px;
 }
 
 .btn-schedule-inline:hover {
-    background: var(--hl-primary-dark);
-    transform: translateY(-1px);
+    background: #2563eb;
 }
 
 .btn-schedule-inline.btn-scheduled {
@@ -1544,29 +1575,44 @@ body {
 
 /* Week Accordion Styles */
 .week-accordion {
-    margin-bottom: 16px;
+    margin-bottom: 4px;
     width: 100%;
     display: flex;
     flex-direction: column;
+    margin-top: 0;
 }
 
 .week-accordion .message-content.week-accordion-wrapper {
     width: 100%;
     max-width: 100%;
-    padding: 0;
+    padding: 0 !important;
+    margin: 0 !important;
     background: transparent;
     box-shadow: none;
 }
 
+.week-accordion.message {
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.week-accordion.message .message-avatar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+}
+
 .week-accordion-header {
     background: #f9fafb;
-    padding: 14px 16px;
+    padding: 4px 8px !important;
     border-radius: 8px;
     cursor: pointer;
     user-select: none;
     transition: all 0.2s ease;
     border: 2px solid #e5e7eb;
-    margin-bottom: 8px;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
 }
 
 .week-accordion-header:hover {
@@ -1582,7 +1628,7 @@ body {
 .week-accordion-header .week-header-content {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 6px;
     font-weight: 600;
     color: #1f2937;
     background: transparent;
@@ -1623,8 +1669,9 @@ body {
 }
 
 .week-accordion-content {
-    padding: 0;
-    margin-top: 8px;
+    padding: 0 !important;
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
     animation: slideDown 0.3s ease;
     overflow: visible;
     width: 100%;
@@ -1634,22 +1681,44 @@ body {
 .week-posts-container {
     width: 100%;
     display: block;
+    margin: 0;
+    padding: 0;
 }
 
 .week-accordion-content .post-message {
     width: 100%;
     max-width: 100%;
-    margin: 0;
-    margin-bottom: 12px;
+    margin: 0 !important;
+    margin-bottom: 0 !important;
+    margin-top: 0 !important;
     display: block;
     clear: both;
+    gap: 0 !important;
+    padding: 0 !important;
+}
+
+.week-accordion-content .post-message + .post-message {
+    margin-top: 0 !important;
+}
+
+.week-accordion-content .post-message .message-avatar {
+    display: none !important;
 }
 
 .week-accordion-content .post-card {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    margin: 0;
+    margin: 0 !important;
+    padding: 6px !important;
+    background: white;
+    border: 2px solid #e5e7eb;
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.week-accordion-content .post-card + .post-card {
+    margin-top: 0 !important;
 }
 
 @keyframes slideDown {

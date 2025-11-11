@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Accordion Sample - Week Posts</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #1f2937;
+        }
+
+        /* Week Accordion Styles */
+        .week-accordion {
+            margin-bottom: 4px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            margin-top: 0;
+        }
+
+        .week-accordion .message-content.week-accordion-wrapper {
+            width: 100%;
+            max-width: 100%;
+            padding: 0;
+            margin: 0;
+            background: transparent;
+            box-shadow: none;
+        }
+
+        .week-accordion-header {
+            background: #f9fafb;
+            padding: 6px 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.2s ease;
+            border: 2px solid #e5e7eb;
+            margin-bottom: 2px;
+        }
+
+        .week-accordion-header:hover {
+            background: #f3f4f6;
+            border-color: #6938EF;
+        }
+
+        .week-accordion-header.expanded {
+            background: #ede9fe;
+            border-color: #6938EF;
+        }
+
+        .week-accordion-header .week-header-content {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: #1f2937;
+            background: transparent;
+            padding: 0;
+            border-left: none;
+            margin: 0;
+        }
+
+        .week-number {
+            font-size: 16px;
+            color: #6938EF;
+            font-weight: 700;
+        }
+
+        .week-date-range {
+            font-size: 14px;
+            color: #6b7280;
+            flex: 1;
+        }
+
+        .week-post-count {
+            font-size: 13px;
+            color: #9ca3af;
+            background: white;
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        .week-accordion-icon {
+            font-size: 12px;
+            color: #6938EF;
+            transition: transform 0.2s ease;
+            margin-left: auto;
+        }
+
+        .week-accordion-header.expanded .week-accordion-icon {
+            transform: rotate(180deg);
+        }
+
+        .week-accordion-content {
+            padding: 0 !important;
+            margin-top: 2px !important;
+            margin-bottom: 0 !important;
+            animation: slideDown 0.3s ease;
+            overflow: visible;
+            width: 100%;
+            display: block;
+        }
+
+        .week-posts-container {
+            width: 100%;
+            display: block;
+            margin: 0;
+            padding: 0;
+        }
+
+        .week-accordion-content .post-message {
+            width: 100%;
+            max-width: 100%;
+            margin: 0 !important;
+            margin-bottom: 2px !important;
+            display: block;
+            clear: both;
+            gap: 0 !important;
+            padding: 0 !important;
+        }
+
+        .week-accordion-content .post-message .message-avatar {
+            display: none !important;
+        }
+
+        .week-accordion-content .post-card {
+            width: 100%;
+            max-width: 100%;
+            box-sizing: border-box;
+            margin: 0 !important;
+            padding: 8px !important;
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .post-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .week-accordion-content .post-header {
+            margin-bottom: 4px !important;
+            padding-bottom: 4px !important;
+        }
+
+        .post-date {
+            font-weight: 600;
+            color: #374151;
+            font-size: 14px;
+        }
+
+        .post-type-badge {
+            background: #ede9fe;
+            color: #7c3aed;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .post-theme {
+            font-size: 16px;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 6px;
+        }
+
+        .week-accordion-content .post-theme {
+            margin-bottom: 4px !important;
+        }
+
+        .post-caption {
+            color: #4b5563;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .week-accordion-content .post-caption {
+            margin-bottom: 4px !important;
+        }
+
+        .post-hashtags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .week-accordion-content .post-hashtags {
+            margin-bottom: 4px !important;
+        }
+
+        .hashtag {
+            background: #ede9fe;
+            color: #7c3aed;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .post-actions-inline {
+            display: flex;
+            gap: 6px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px solid #e5e7eb;
+            justify-content: flex-start;
+        }
+
+        .week-accordion-content .post-actions-inline {
+            margin-top: 4px !important;
+            padding-top: 4px !important;
+        }
+
+        .post-actions-inline button {
+            flex: 0 0 auto;
+            padding: 5px 9px;
+            border: none;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-edit-inline,
+        .btn-preview-inline {
+            background: #f3f4f6;
+            color: #374151;
+        }
+
+        .btn-edit-inline:hover,
+        .btn-preview-inline:hover {
+            background: #e5e7eb;
+        }
+
+        .btn-schedule-inline {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .btn-schedule-inline:hover {
+            background: #2563eb;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                max-height: 0;
+            }
+            to {
+                opacity: 1;
+                max-height: 5000px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Week Accordion Sample</h1>
+        
+        <!-- Week 1 Accordion -->
+        <div class="week-accordion">
+            <div class="message-content week-accordion-wrapper">
+                <div class="week-accordion-header" onclick="toggleWeek(this)">
+                    <div class="week-header-content">
+                        <span class="week-number">Week 1</span>
+                        <span class="week-date-range">Dec 17 - Dec 23</span>
+                        <span class="week-post-count">2 posts</span>
+                        <span class="week-accordion-icon">▼</span>
+                    </div>
+                </div>
+                <div class="week-accordion-content" style="display: none;">
+                    <div class="week-posts-container">
+                        <!-- Post 1 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Wed, Dec 17</span>
+                                    <span class="post-type-badge">promotional</span>
+                                </div>
+                                <div class="post-theme"><strong>New Year Preview: Services 2026</strong></div>
+                                <div class="post-caption">Exciting updates are on the horizon for 2026, including AI-enhanced consulting and expanded global support. Stay tuned for the rollout!</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#2026Preview</span>
+                                    <span class="hashtag">#Innovation</span>
+                                    <span class="hashtag">#ProfessionalGrowth</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Post 2 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Fri, Dec 19</span>
+                                    <span class="post-type-badge">inspirational</span>
+                                </div>
+                                <div class="post-theme"><strong>Holiday Greeting & New Year Preview</strong></div>
+                                <div class="post-caption">Wishing you a joyful holiday season! Stay tuned for exciting product launches in 2026.</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#HappyHolidays</span>
+                                    <span class="hashtag">#NewYearPreview</span>
+                                    <span class="hashtag">#RetailFuture</span>
+                                    <span class="hashtag">#ThankYou</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 2 Accordion -->
+        <div class="week-accordion">
+            <div class="message-content week-accordion-wrapper">
+                <div class="week-accordion-header" onclick="toggleWeek(this)">
+                    <div class="week-header-content">
+                        <span class="week-number">Week 2</span>
+                        <span class="week-date-range">Dec 24 - Dec 30</span>
+                        <span class="week-post-count">1 post</span>
+                        <span class="week-accordion-icon">▼</span>
+                    </div>
+                </div>
+                <div class="week-accordion-content" style="display: none;">
+                    <div class="week-posts-container">
+                        <!-- Post 1 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Mon, Dec 29</span>
+                                    <span class="post-type-badge">educational</span>
+                                </div>
+                                <div class="post-theme"><strong>Year-End Reflection & Planning</strong></div>
+                                <div class="post-caption">As we approach the end of 2025, it's a great time to reflect on achievements and plan for success in 2026. What are your goals for the new year?</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#YearEnd</span>
+                                    <span class="hashtag">#Planning</span>
+                                    <span class="hashtag">#Goals2026</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Week 3 Accordion -->
+        <div class="week-accordion">
+            <div class="message-content week-accordion-wrapper">
+                <div class="week-accordion-header" onclick="toggleWeek(this)">
+                    <div class="week-header-content">
+                        <span class="week-number">Week 3</span>
+                        <span class="week-date-range">Dec 31 - Jan 6</span>
+                        <span class="week-post-count">3 posts</span>
+                        <span class="week-accordion-icon">▼</span>
+                    </div>
+                </div>
+                <div class="week-accordion-content" style="display: none;">
+                    <div class="week-posts-container">
+                        <!-- Post 1 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Tue, Jan 1</span>
+                                    <span class="post-type-badge">inspirational</span>
+                                </div>
+                                <div class="post-theme"><strong>Happy New Year 2026!</strong></div>
+                                <div class="post-caption">Welcome to 2026! We're excited to serve you with enhanced services and innovative solutions throughout the year.</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#HappyNewYear</span>
+                                    <span class="hashtag">#2026</span>
+                                    <span class="hashtag">#NewBeginnings</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Post 2 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Thu, Jan 3</span>
+                                    <span class="post-type-badge">promotional</span>
+                                </div>
+                                <div class="post-theme"><strong>New Year Special Offer</strong></div>
+                                <div class="post-caption">Start 2026 with a bang! Special discounts available on all services this month. Limited time offer!</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#NewYearSpecial</span>
+                                    <span class="hashtag">#Discount</span>
+                                    <span class="hashtag">#LimitedTime</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Post 3 -->
+                        <div class="post-message">
+                            <div class="post-card">
+                                <div class="post-header">
+                                    <span class="post-date">Sat, Jan 5</span>
+                                    <span class="post-type-badge">educational</span>
+                                </div>
+                                <div class="post-theme"><strong>Tips for a Successful 2026</strong></div>
+                                <div class="post-caption">Setting clear goals, staying organized, and maintaining focus are key to achieving success in the new year. Here are our top tips!</div>
+                                <div class="post-hashtags">
+                                    <span class="hashtag">#SuccessTips</span>
+                                    <span class="hashtag">#Productivity</span>
+                                    <span class="hashtag">#Goals</span>
+                                </div>
+                                <div class="post-actions-inline">
+                                    <button class="btn-edit-inline">✏️ Edit</button>
+                                    <button class="btn-preview-inline">👁️ Preview</button>
+                                    <button class="btn-schedule-inline">Schedule</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleWeek(header) {
+            const content = header.nextElementSibling;
+            const icon = header.querySelector('.week-accordion-icon');
+            const isExpanded = content.style.display !== 'none';
+            
+            content.style.display = isExpanded ? 'none' : 'block';
+            icon.textContent = isExpanded ? '▼' : '▲';
+            header.classList.toggle('expanded', !isExpanded);
+        }
+    </script>
+</body>
+</html>

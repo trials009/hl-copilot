@@ -105,10 +105,6 @@ sequenceDiagram
 
 **Location**: `integration/highlevel-integration.js`
 
-<!-- **Trade-offs**:
-- ✅ **Pros**: No app store approval needed, full control over UI/UX, instant deployment -->
-<!-- - ❌ **Cons**: Limited to Custom JS capabilities, no native HighLevel API access, requires manual updates -->
-
 ### 2. Node.js (Express Backend)
 
 **Purpose**: Server-side API handling, business logic, and integration with external services.
@@ -135,10 +131,6 @@ backend/
 - Session management for conversation history
 - Error handling with centralized constants
 - CORS configuration for HighLevel domain
-
-**Trade-offs**:
-- ✅ **Pros**: Fast development, rich ecosystem, easy deployment to Vercel
-- ❌ **Cons**: In-memory storage (not persistent), single server instance limitations
 
 ### 3. Groq AI (LLM Integration)
 
@@ -168,10 +160,7 @@ const stream = await groq.chat.completions.create({
 - Context reminders guide AI behavior
 - Dynamic quick reply generation
 - Industry-agnostic (no hardcoded industries)
-
-**Trade-offs**:
-- ✅ **Pros**: Fast inference, cost-effective, good for streaming
-- ❌ **Cons**: Less creative than GPT-4, requires careful prompt engineering
+- LLM-powered information extraction (replaces keyword-based parsing)
 
 ### 4. Facebook Graph API
 
@@ -205,11 +194,51 @@ sequenceDiagram
 - `pages_read_engagement` - Read page insights
 - `pages_show_list` - List user's pages
 
-**Trade-offs**:
-- ✅ **Pros**: Official API, reliable, feature-rich
-- ❌ **Cons**: Complex OAuth flow, rate limits, requires app review for production
+### 5. LangGraph State Machine (Conversation Flow Management)
 
-### 5. Vercel (Deployment Platform)
+**Purpose**: Manages conversation state transitions and context-aware AI prompts using a state machine pattern inspired by LangGraph.
+
+**Implementation**:
+```javascript
+// State machine manages conversation flow
+const state = initializeState(businessProfile, conversationHistory, facebookConnected);
+const contextReminder = getContextReminderForState(state);
+const nextState = determineNextState(state);
+```
+
+**Conversation States**:
+- `GREETING` - Initial welcome and industry discovery
+- `COLLECTING_INDUSTRY` - Gathering business industry
+- `COLLECTING_PRODUCTS_SERVICES` - Understanding offerings
+- `COLLECTING_AUDIENCE` - Identifying target customers
+- `COLLECTING_TONE` - Determining brand voice
+- `FACEBOOK_CONNECTION_REQUIRED` - Prompting for Facebook OAuth
+- `FACEBOOK_CONNECTED` - Facebook linked, ready for content
+- `POST_GENERATION_READY` - All information gathered, can generate posts
+
+**Key Features**:
+- **Data-driven state transitions**: No hardcoded message patterns (e.g., "hi", "hello", "start")
+- **LLM-powered extraction**: Business profile information extracted via Groq API, not keyword matching
+- **Context-aware prompts**: AI receives state-specific context reminders to guide conversation
+- **Zero hardcoding**: Conversation flow determined by profile completeness and conversation history length
+- **State persistence**: State maintained across widget close/open cycles via session storage
+
+**State Schema**:
+```javascript
+{
+  currentState: String,
+  businessProfile: Object,
+  conversationHistory: Array,
+  userResponseCount: Number,
+  facebookConnected: Boolean,
+  lastQuestionAsked: String,
+  metadata: Object
+}
+```
+
+**Location**: `backend/utils/conversationState.js`
+
+### 6. Vercel (Deployment Platform)
 
 **Purpose**: Serverless deployment with automatic scaling and edge distribution.
 
@@ -231,57 +260,43 @@ sequenceDiagram
 - Automatic HTTPS
 - Zero-downtime deployments
 
-**Trade-offs**:
-- ✅ **Pros**: Easy deployment, automatic scaling, global CDN, free tier
-- ❌ **Cons**: Cold starts, 10-second timeout limit, vendor lock-in
-
 ## Technical Architecture Trade-offs
 
-### 1. In-Memory Storage vs Database
+1. **MCP Integration vs Direct API Integration**
+   - **Chosen**: Direct Facebook Graph API integration
+   - **Reason**: Sandbox limitations and lack of official Facebook MCP server
+   - **Impact**: Code is less scalable for additional social media channels. Each new platform requires custom routes/endpoints rather than a unified MCP-based plugin architecture
+   - **Future**: MCP integration would enable a plugin-style architecture where each social platform is a separate MCP server
 
-**Current**: In-memory Maps for conversations and profiles
+2. **In-Memory Storage vs Persistent Database**
+   - **Chosen**: In-memory `Map()` storage for conversations, profiles, and OAuth states
+   - **Impact**: Data lost on server restart, no multi-instance support, OAuth states can expire
+   - **Future**: Migrate to Redis or PostgreSQL for production persistence
 
-**Trade-offs**:
-- ✅ **Pros**: Zero setup, fast, works for demos
-- ❌ **Cons**: Data lost on restart, no persistence, single instance only
+3. **CSS Units: px vs rem**
+   - **Chosen**: Pixel-based (`px`) units throughout the widget CSS
+   - **Impact**: Design doesn't respect user font size preferences, reduced accessibility
+   - **Future**: Migrate to `rem` units for better accessibility and user preference support
 
-**Future**: Migrate to Redis or PostgreSQL for production
+4. **CORS Configuration: Open to All Origins**
+   - **Chosen**: `origin: '*'` allows any domain to access the API
+   - **Impact**: Security risk in production; should be restricted to HighLevel domain
+   - **Future**: Restrict CORS to specific HighLevel domains in production environment
 
-### 2. Streaming vs Non-Streaming Responses
+5. **No Explicit Authentication/Authorization**
+   - **Chosen**: Relies on HighLevel's session context; `userId` passed from widget but not validated server-side
+   - **Impact**: No protection against unauthorized access or user impersonation
+   - **Future**: Add JWT validation or HighLevel API token verification
 
-**Current**: Both endpoints available (`/stream` and `/`)
+6. **Synchronous Post Scheduling (No Queue System)**
+   - **Chosen**: Post scheduling happens synchronously during API request
+   - **Impact**: Long-running requests, no retry mechanism, failures block user
+   - **Future**: Background job queue (Bull, BullMQ) for async scheduling with retries
 
-**Trade-offs**:
-- ✅ **Streaming**: Better UX, perceived performance, real-time feedback
-- ❌ **Streaming**: More complex error handling, connection management
-
-### 3. Widget Embedding: Iframe vs Custom Element
-
-**Current**: Iframe embedding via Custom JS
-
-**Trade-offs**:
-- ✅ **Iframe**: Isolation, security, easy updates
-- ❌ **Iframe**: Cross-origin complexity, limited parent communication
-
-### 4. AI Provider: Groq vs OpenAI
-
-**Current**: Groq (Llama models)
-
-**Trade-offs**:
-- ✅ **Groq**: Faster, cheaper, good for structured tasks
-- ❌ **Groq**: Less creative, requires better prompts
-- ✅ **OpenAI**: More creative, better at complex reasoning
-- ❌ **OpenAI**: Slower, more expensive
-
-### 5. Deployment: Vercel vs Traditional Server
-
-**Current**: Vercel serverless
-
-**Trade-offs**:
-- ✅ **Vercel**: Auto-scaling, global CDN, zero ops
-- ❌ **Vercel**: Cold starts, timeout limits, vendor lock-in
-- ✅ **Traditional**: Full control, no cold starts, longer timeouts
-- ❌ **Traditional**: Manual scaling, server management, higher costs
+7. **No Rate Limiting**
+   - **Chosen**: API endpoints have no rate limiting
+   - **Impact**: Vulnerable to abuse, DDoS, or excessive API costs
+   - **Future**: Add rate limiting middleware (e.g., `express-rate-limit`)
 
 ## Project Structure
 
@@ -290,6 +305,7 @@ highlevel-copilot/
 ├── backend/              # Node.js/Express API
 │   ├── routes/          # API route handlers
 │   ├── utils/           # Utility functions
+│   │   └── conversationState.js  # LangGraph-inspired state machine
 │   ├── constants.js     # Application constants
 │   ├── server.js        # Express server
 │   └── vercel-entry.js  # Vercel entry point
