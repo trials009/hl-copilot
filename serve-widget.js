@@ -1,3 +1,18 @@
+/**
+ * Optional Widget Server (Legacy)
+ * 
+ * NOTE: This file is optional. The main server (backend/server.js) already serves
+ * the widget files at /widget/* and the root endpoint.
+ * 
+ * Use `npm start` to run the main server which includes:
+ * - API endpoints at /api/*
+ * - Widget files at /widget/*
+ * - Widget HTML at / (root)
+ * 
+ * This file is kept for backward compatibility or if you need a separate
+ * static file server on a different port.
+ */
+
 const http = require('http');
 const fs = require('fs');
 const path = require('path');

@@ -40,13 +40,31 @@ app.use('/widget', (req, res, next) => {
 
 // Serve static files from frontend (no authentication required)
 app.use('/widget', express.static(path.join(__dirname, '../frontend'), {
-  setHeaders: (res, path) => {
+  setHeaders: (res, filePath) => {
     // Ensure widget files are publicly accessible
     res.removeHeader('X-Frame-Options');
     res.setHeader('Content-Security-Policy', "frame-ancestors *;");
-    res.setHeader('Cache-Control', 'public, max-age=3600');
+    // Disable caching for HTML files to ensure fresh content
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    } else {
+      // Cache CSS/JS for 1 hour
+      res.setHeader('Cache-Control', 'public, max-age=3600');
+    }
   }
 }));
+
+// Serve widget.html directly at /widget.html (matches old serve-widget.js behavior)
+app.get('/widget.html', (req, res) => {
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.setHeader('Content-Security-Policy', "frame-ancestors *;");
+  res.sendFile(path.join(__dirname, '../frontend/widget.html'));
+});
 
 // API Routes
 app.use('/api/chat', chatRoutes);
@@ -60,28 +78,40 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', message: 'HighLevel Copilot API is running' });
 });
 
-// Root endpoint
+// Root endpoint - serve widget HTML for easy access
 app.get('/', (req, res) => {
-  res.json({
-    message: 'HighLevel Copilot API',
-    version: '1.0.0',
-    endpoints: {
-      health: '/health',
-      chat: '/api/chat',
-      profile: '/api/profile',
-      facebook: '/api/facebook',
-      calendar: '/api/calendar',
-      scheduling: '/api/scheduling'
-    }
-  });
+  // If requesting HTML, serve the widget
+  if (req.headers.accept && req.headers.accept.includes('text/html')) {
+    res.sendFile(path.join(__dirname, '../frontend/widget.html'));
+  } else {
+    // Otherwise return API info
+    res.json({
+      message: 'HighLevel Copilot API',
+      version: '1.0.0',
+      endpoints: {
+        health: '/health',
+        chat: '/api/chat',
+        profile: '/api/profile',
+        facebook: '/api/facebook',
+        calendar: '/api/calendar',
+        scheduling: '/api/scheduling',
+        widget: '/widget/widget.html'
+      }
+    });
+  }
 });
 
 // Only start server if not in Vercel environment
 if (!config.server.isVercel) {
   app.listen(PORT, () => {
-    console.log(`HighLevel Copilot API server running on port ${PORT}`);
-    console.log(`Environment: ${config.server.env}`);
-    console.log(`Backend URL: ${config.server.backendUrl}`);
+    console.log(`🚀 HighLevel Copilot Server running on port ${PORT}`);
+    console.log(`📡 Environment: ${config.server.env}`);
+    console.log(`🌐 Backend URL: ${config.server.backendUrl}`);
+    console.log(`\n📍 Available endpoints:`);
+    console.log(`   • API: ${config.server.backendUrl}/api/*`);
+    console.log(`   • Widget: ${config.server.backendUrl}/widget/widget.html`);
+    console.log(`   • Widget (root): ${config.server.backendUrl}/`);
+    console.log(`   • Health: ${config.server.backendUrl}/health`);
 
     // Show configuration summary
     const summary = config.getSummary();
@@ -98,6 +128,7 @@ if (!config.server.isVercel) {
         console.log('   ⚠️  Facebook: Not configured (Mock mode)');
       }
     }
+    console.log('\n✨ Server ready! Use Ctrl+C to stop.\n');
   });
 }
 
