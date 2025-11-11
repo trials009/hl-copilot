@@ -54,8 +54,8 @@ body {
 .widget-header {
     background: #ffffff;
     color: #1f2937;
-    padding: 16px 10px;
-    /* Right padding (10px) matches chat area right padding for perfect alignment */
+    padding: 16px 0px 16px 15px;
+    /* Left padding (10px) matches chat messages left padding for perfect alignment */
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -80,6 +80,8 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
+    margin: 0;
+    padding: 0;
 }
 
 .header-icon {
