@@ -17,7 +17,7 @@ const MOCK_MODE = !config.ai.isConfigured();
 function generateMockCalendar(profile, startDate) {
   const calendar = [];
   const start = startDate ? new Date(startDate) : new Date();
-  
+
   const postTypes = ['Educational', 'Promotional', 'Inspirational', 'Behind-the-Scenes', 'User-Generated', 'Tips & Tricks'];
   const industries = {
     'Fitness': {
@@ -42,10 +42,10 @@ function generateMockCalendar(profile, startDate) {
   for (let i = 0; i < 30; i++) {
     const date = new Date(start);
     date.setDate(date.getDate() + i);
-    
+
     const themeIndex = i % industryData.themes.length;
     const typeIndex = i % postTypes.length;
-    
+
     calendar.push({
       id: `post-${i + 1}`,
       day: i + 1,
@@ -71,18 +71,18 @@ router.post('/generate', async (req, res) => {
     const { userId, startDate } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ 
-        error: 'userId is required' 
+      return res.status(400).json({
+        error: 'userId is required'
       });
     }
 
     // Get business profile
     const profile = getBusinessProfile(userId);
-    
+
     if (!profile) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Business profile not found',
-        message: 'Please complete the business profile setup first' 
+        message: 'Please complete the business profile setup first'
       });
     }
 
@@ -188,7 +188,7 @@ Generate exactly 30 posts, one for each day.`;
       // Try to parse as JSON
       const responseText = completion.choices[0].message.content;
       generatedContent = JSON.parse(responseText);
-      
+
       // Handle case where response might be wrapped in a property
       if (generatedContent.posts || generatedContent.calendar) {
         posts.push(...(generatedContent.posts || generatedContent.calendar));
@@ -209,7 +209,7 @@ Generate exactly 30 posts, one for each day.`;
       const day = posts.length + 1;
       const date = new Date(start);
       date.setDate(date.getDate() + day - 1);
-      
+
       posts.push({
         day: day,
         date: date.toISOString().split('T')[0],
@@ -227,7 +227,7 @@ Generate exactly 30 posts, one for each day.`;
     finalPosts.forEach((post, index) => {
       const postDate = new Date(start);
       postDate.setDate(postDate.getDate() + index);
-      
+
       calendar.push({
         id: `post-${index + 1}`,
         day: index + 1,
@@ -254,7 +254,7 @@ Generate exactly 30 posts, one for each day.`;
 
   } catch (error) {
     console.error('Calendar generation error:', error);
-    
+
     // Try to return mock calendar as fallback
     try {
       const profile = getBusinessProfile(req.body.userId);
@@ -272,7 +272,7 @@ Generate exactly 30 posts, one for each day.`;
         note: 'Error occurred, using mock calendar as fallback.'
       });
     } catch (fallbackError) {
-      res.status(500).json({ 
+      res.status(500).json({
         error: 'Failed to generate content calendar',
         details: error.message,
         note: 'This might be due to missing GROQ_API_KEY or API limits'
@@ -291,7 +291,7 @@ function parseFallbackContent(content, startDate) {
 
   for (let i = 0; i < lines.length && posts.length < 30; i++) {
     const line = lines[i].trim();
-    
+
     if (line.includes('Day') || line.match(/^\d+\./)) {
       if (currentPost) {
         posts.push(currentPost);
@@ -366,4 +366,3 @@ router.get('/:userId', (req, res) => {
 });
 
 module.exports = router;
-

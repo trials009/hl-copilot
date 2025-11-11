@@ -33,10 +33,10 @@ function mockFacebookConnection(userId) {
 router.get('/auth-url', (req, res) => {
   try {
     const { userId } = req.query;
-    
+
     if (!userId) {
-      return res.status(400).json({ 
-        error: 'userId is required' 
+      return res.status(400).json({
+        error: 'userId is required'
       });
     }
 
@@ -44,8 +44,8 @@ router.get('/auth-url', (req, res) => {
     if (MOCK_MODE) {
       const state = `mock_${userId}_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       oauthStates.set(state, { userId, timestamp: Date.now(), mock: true });
-      
-      return res.json({ 
+
+      return res.json({
         authUrl: `${req.protocol}://${req.get('host')}/api/facebook/mock-callback?state=${state}`,
         state,
         mock: true,
@@ -63,16 +63,16 @@ router.get('/auth-url', (req, res) => {
       `&state=${state}` +
       `&scope=pages_manage_posts,pages_read_engagement,business_management`;
 
-    res.json({ 
+    res.json({
       authUrl,
       state,
       mock: false
     });
   } catch (error) {
     console.error('Facebook auth URL error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to generate auth URL',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -84,7 +84,7 @@ router.get('/auth-url', (req, res) => {
 router.get('/mock-callback', (req, res) => {
   try {
     const { state } = req.query;
-    
+
     if (!state) {
       return res.status(400).json({ error: 'Missing state parameter' });
     }
@@ -188,23 +188,23 @@ router.get('/callback', async (req, res) => {
     const { code, state, error } = req.query;
 
     if (error) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Facebook OAuth error',
-        details: error 
+        details: error
       });
     }
 
     if (!code || !state) {
-      return res.status(400).json({ 
-        error: 'Missing code or state parameter' 
+      return res.status(400).json({
+        error: 'Missing code or state parameter'
       });
     }
 
     // Verify state
     const stateData = oauthStates.get(state);
     if (!stateData) {
-      return res.status(400).json({ 
-        error: 'Invalid state parameter' 
+      return res.status(400).json({
+        error: 'Invalid state parameter'
       });
     }
 
@@ -222,8 +222,8 @@ router.get('/callback', async (req, res) => {
     const accessToken = tokenResponse.data.access_token;
 
     if (!accessToken) {
-      return res.status(500).json({ 
-        error: 'Failed to obtain access token' 
+      return res.status(500).json({
+        error: 'Failed to obtain access token'
       });
     }
 
@@ -233,10 +233,10 @@ router.get('/callback', async (req, res) => {
     );
 
     const pages = pagesResponse.data.data || [];
-    
+
     if (pages.length === 0) {
-      return res.status(400).json({ 
-        error: 'No Facebook pages found. Please create a page first.' 
+      return res.status(400).json({
+        error: 'No Facebook pages found. Please create a page first.'
       });
     }
 
@@ -365,9 +365,9 @@ router.get('/status/:userId', (req, res) => {
   try {
     const { userId } = req.params;
     const profile = getBusinessProfile(userId);
-    
+
     if (!profile) {
-      return res.json({ 
+      return res.json({
         connected: false,
         message: 'No profile found',
         mock: MOCK_MODE
@@ -383,9 +383,9 @@ router.get('/status/:userId', (req, res) => {
     });
   } catch (error) {
     console.error('Facebook status error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to check Facebook status',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -405,14 +405,14 @@ router.post('/disconnect/:userId', (req, res) => {
       facebookConnectedAt: null
     });
 
-    res.json({ 
-      message: 'Facebook account disconnected successfully' 
+    res.json({
+      message: 'Facebook account disconnected successfully'
     });
   } catch (error) {
     console.error('Facebook disconnect error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to disconnect Facebook',
-      details: error.message 
+      details: error.message
     });
   }
 });

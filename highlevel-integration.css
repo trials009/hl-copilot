@@ -1,28 +1,13 @@
 /**
- * HighLevel Copilot Integration - CSS
+ * HighLevel Ask AI Integration - CSS
  * 
  * Paste this CSS into HighLevel: Settings > Company > Custom JavaScript & Custom CSS > Custom CSS
  * 
- * This CSS styles the floating Copilot button and widget container to match the latest widget design.
- * Updated to match the current widget design with purple gradient theme.
+ * This CSS styles the floating Ask AI button and widget container
+ * Theme: Purple (#6938EF) matching the Ask AI brand
  */
 
-/* HighLevel Design System Variables (matching widget.css) */
-:root {
-    --hl-copilot-primary: #667eea;
-    --hl-copilot-primary-dark: #5568d3;
-    --hl-copilot-secondary: #764ba2;
-    --hl-copilot-success: #10b981;
-    --hl-copilot-error: #ef4444;
-    --hl-copilot-radius: 8px;
-    --hl-copilot-radius-lg: 12px;
-    --hl-copilot-shadow: 0 1px 3px rgba(0,0,0,0.12);
-    --hl-copilot-shadow-md: 0 4px 12px rgba(0,0,0,0.15);
-    --hl-copilot-shadow-lg: 0 8px 24px rgba(0,0,0,0.2);
-    --hl-copilot-transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Floating Toggle Button - Matches widget gradient design */
+/* Floating Toggle Button - Ask AI Theme */
 #hl-copilot-toggle-btn {
     position: fixed;
     right: 24px;
@@ -30,41 +15,48 @@
     width: 64px;
     height: 64px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--hl-copilot-primary) 0%, var(--hl-copilot-secondary) 100%);
+    background: #6938EF;
+    /* Purple theme matching Ask AI */
     color: white;
     border: none;
-    font-size: 28px;
     cursor: pointer;
-    box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    box-shadow: 0 4px 20px rgba(105, 56, 239, 0.4);
     z-index: 1000000;
-    transition: var(--hl-copilot-transition);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
     outline: none;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+#hl-copilot-toggle-btn svg {
+    width: 28px;
+    height: 28px;
+    display: block;
 }
 
 #hl-copilot-toggle-btn:hover {
-    transform: scale(1.1) translateY(-2px);
-    box-shadow: 0 6px 24px rgba(102, 126, 234, 0.6);
+    transform: scale(1.1);
+    box-shadow: 0 6px 24px rgba(105, 56, 239, 0.6);
+    background: #7c3aed;
 }
 
 #hl-copilot-toggle-btn:active {
-    transform: scale(0.95) translateY(0);
+    transform: scale(0.95);
 }
 
 #hl-copilot-toggle-btn.active {
-    background: var(--hl-copilot-error);
+    background: #ef4444;
     box-shadow: 0 4px 20px rgba(239, 68, 68, 0.4);
 }
 
 #hl-copilot-toggle-btn.active:hover {
+    background: #dc2626;
     box-shadow: 0 6px 24px rgba(239, 68, 68, 0.6);
 }
 
-/* Widget Container - Matches widget design with rounded corners and shadow */
+/* Widget Container - Ask AI Theme */
 #hl-copilot-widget-container {
     position: fixed;
     right: 24px;
@@ -73,13 +65,15 @@
     height: 650px;
     max-height: calc(100vh - 24px - 64px - 48px);
     z-index: 999999;
-    box-shadow: var(--hl-copilot-shadow-lg);
-    border-radius: var(--hl-copilot-radius-lg);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    border-radius: 12px;
+    /* Matching widget border radius */
     overflow: hidden;
     display: none;
     background: white;
     animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    border: 1px solid #e5e7eb;
+    /* Subtle border matching widget */
 }
 
 @keyframes slideIn {
@@ -87,19 +81,19 @@
         opacity: 0;
         transform: translateY(20px) scale(0.95);
     }
+
     to {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
 }
 
-/* Iframe - Full width and height, no border */
+/* Iframe */
 #hl-copilot-iframe {
     width: 100%;
     height: 100%;
     border: none;
     display: block;
-    background: white;
 }
 
 /* Responsive design for smaller screens */
@@ -113,11 +107,8 @@
     }
 
     #hl-copilot-toggle-btn {
-        right: 16px;
-        bottom: 16px;
-        width: 56px;
-        height: 56px;
-        font-size: 24px;
+        right: 24px;
+        bottom: 24px;
     }
 }
 
@@ -125,19 +116,4 @@
 #hl-copilot-widget-container,
 #hl-copilot-toggle-btn {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important;
-}
-
-/* Ensure widget appears above HighLevel modals and overlays */
-#hl-copilot-widget-container {
-    pointer-events: auto;
-}
-
-/* Accessibility improvements */
-#hl-copilot-toggle-btn:focus {
-    outline: 3px solid rgba(102, 126, 234, 0.5);
-    outline-offset: 2px;
-}
-
-#hl-copilot-toggle-btn:focus:not(:focus-visible) {
-    outline: none;
 }

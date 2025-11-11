@@ -15,33 +15,33 @@ router.post('/schedule', async (req, res) => {
     const { userId, postId, date, caption, hashtags } = req.body;
 
     if (!userId || !date || !caption) {
-      return res.status(400).json({ 
-        error: 'userId, date, and caption are required' 
+      return res.status(400).json({
+        error: 'userId, date, and caption are required'
       });
     }
 
     // Get business profile and Facebook connection
     const profile = getBusinessProfile(userId);
-    
+
     if (!profile) {
-      return res.status(404).json({ 
-        error: 'Business profile not found' 
+      return res.status(404).json({
+        error: 'Business profile not found'
       });
     }
 
     if (!profile.facebookConnected || !profile.facebookPageId) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Facebook account not connected',
-        message: 'Please connect your Facebook account first' 
+        message: 'Please connect your Facebook account first'
       });
     }
 
     const accessToken = profile.facebookAccessToken;
-    
+
     if (!accessToken) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Facebook access token not found',
-        message: 'Please reconnect your Facebook account' 
+        message: 'Please reconnect your Facebook account'
       });
     }
 
@@ -56,22 +56,22 @@ router.post('/schedule', async (req, res) => {
     // Handle both date strings (YYYY-MM-DD) and full datetime strings
     let scheduledTime;
     const now = new Date();
-    
+
     if (typeof date === 'string' && date.match(/^\d{4}-\d{2}-\d{2}$/)) {
       // Date-only format (YYYY-MM-DD) - set to 9 AM local time on that date
       const dateParts = date.split('-');
       const year = parseInt(dateParts[0]);
       const month = parseInt(dateParts[1]) - 1; // 0-indexed
       const day = parseInt(dateParts[2]);
-      
+
       scheduledTime = new Date(year, month, day, 9, 0, 0); // 9 AM local time
-      
+
       // If the date is in the past, assume they mean next year (or adjust to future)
       if (scheduledTime < now) {
         // Check if it's just the time that's past (same day) or the whole date
         const scheduledDateOnly = new Date(year, month, day);
         const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        
+
         if (scheduledDateOnly < todayDateOnly) {
           // The date itself is in the past - assume next occurrence of that date
           // If it's November 15 and we're past it this year, schedule for next year
@@ -100,7 +100,7 @@ router.post('/schedule', async (req, res) => {
     } else {
       // Full datetime string
       scheduledTime = new Date(date);
-      
+
       // If in the past, adjust
       if (scheduledTime < now) {
         const tomorrow = new Date(now);
@@ -114,12 +114,12 @@ router.post('/schedule', async (req, res) => {
     // Facebook requires scheduled posts to be at least 10 minutes in the future
     const minScheduledTime = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes from now
     let finalScheduledTime = scheduledTime;
-    
+
     if (scheduledTime < minScheduledTime) {
       // If less than 10 minutes away, but it's a future date, keep the date and just ensure minimum time
       const scheduledDateOnly = new Date(scheduledTime.getFullYear(), scheduledTime.getMonth(), scheduledTime.getDate());
       const todayDateOnly = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       if (scheduledDateOnly > todayDateOnly) {
         // It's a future date - keep the date, but ensure time is at least 10 minutes from now
         // If the scheduled time on that future date is still too close, use minimum time
@@ -143,7 +143,7 @@ router.post('/schedule', async (req, res) => {
       scheduled_publish_time: unixTimestamp,
       access_token: accessToken
     };
-    
+
     console.log('Scheduling post to Facebook:', {
       pageId: profile.facebookPageId,
       scheduledTime: finalScheduledTime.toISOString(),
@@ -169,7 +169,7 @@ router.post('/schedule', async (req, res) => {
 
     } catch (facebookError) {
       console.error('Facebook API error:', facebookError.response?.data || facebookError.message);
-      
+
       // Handle specific Facebook API errors
       const errorData = facebookError.response?.data?.error;
       if (errorData) {
@@ -184,7 +184,7 @@ router.post('/schedule', async (req, res) => {
           });
         }
       }
-      
+
       // If real API fails, return mock response for demo (only in development)
       if (config.server.env === 'development' && !config.facebook.isConfigured()) {
         return res.json({
@@ -204,7 +204,7 @@ router.post('/schedule', async (req, res) => {
 
   } catch (error) {
     console.error('Scheduling error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to schedule post',
       details: error.response?.data || error.message,
       note: 'If Facebook API is not configured, this will return a mock response in development mode'
@@ -221,17 +221,17 @@ router.post('/schedule-batch', async (req, res) => {
     const { userId, posts } = req.body;
 
     if (!userId || !posts || !Array.isArray(posts)) {
-      return res.status(400).json({ 
-        error: 'userId and posts array are required' 
+      return res.status(400).json({
+        error: 'userId and posts array are required'
       });
     }
 
     // Get business profile
     const profile = getBusinessProfile(userId);
-    
+
     if (!profile || !profile.facebookConnected) {
-      return res.status(400).json({ 
-        error: 'Facebook account not connected' 
+      return res.status(400).json({
+        error: 'Facebook account not connected'
       });
     }
 
@@ -277,9 +277,9 @@ router.post('/schedule-batch', async (req, res) => {
 
   } catch (error) {
     console.error('Batch scheduling error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to schedule posts',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -292,11 +292,11 @@ router.get('/posts/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const profile = getBusinessProfile(userId);
-    
+
     if (!profile || !profile.facebookConnected) {
-      return res.json({ 
+      return res.json({
         posts: [],
-        message: 'No Facebook connection found' 
+        message: 'No Facebook connection found'
       });
     }
 
@@ -309,9 +309,9 @@ router.get('/posts/:userId', async (req, res) => {
 
   } catch (error) {
     console.error('Get posts error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch scheduled posts',
-      details: error.message 
+      details: error.message
     });
   }
 });

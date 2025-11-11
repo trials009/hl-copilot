@@ -430,22 +430,16 @@ router.post('/stream', async (req, res) => {
 
           // Send each character (or small chunks) for smooth streaming
           // Send as small chunks for better responsiveness
-          try {
-            for (let i = 0; i < content.length; i++) {
-              res.write(`data: ${JSON.stringify({
-                type: 'chunk',
-                content: content[i],
-                done: false
-              })}\n\n`);
-            }
-
-            // Flush to client immediately
-            if (res.flush) res.flush();
-          } catch (writeError) {
-            // Connection might be closed, stop streaming
-            console.error('Error writing chunk to stream:', writeError.message);
-            break;
+          for (let i = 0; i < content.length; i++) {
+            res.write(`data: ${JSON.stringify({
+              type: 'chunk',
+              content: content[i],
+              done: false
+            })}\n\n`);
           }
+
+          // Flush to client immediately
+          if (res.flush) res.flush();
         }
 
         // Check if stream is finished
@@ -479,57 +473,26 @@ router.post('/stream', async (req, res) => {
     // Parse quick replies from response
     const { quickReplies, cleanedResponse } = parseQuickReplies(fullResponse);
 
-    // Finalize the response with error handling
-    try {
-      // Ensure quickReplies is safe for JSON serialization
-      const safeQuickReplies = quickReplies && Array.isArray(quickReplies) 
-        ? quickReplies.filter(r => r && typeof r === 'string').slice(0, 10) // Limit to 10, filter invalid entries
-        : null;
+    // Finalize the response
+    res.write(`data: ${JSON.stringify({
+      type: 'done',
+      fullResponse: cleanedResponse,
+      sessionId: sessionId,
+      quickReplies: quickReplies || null
+    })}\n\n`);
 
-      const responseData = {
-        type: 'done',
-        fullResponse: cleanedResponse || '',
-        sessionId: sessionId,
-        quickReplies: safeQuickReplies
-      };
+    // Add assistant response to history (without quick replies marker)
+    conversationHistory.push({
+      role: 'assistant',
+      content: cleanedResponse
+    });
 
-      const jsonData = JSON.stringify(responseData);
-      res.write(`data: ${jsonData}\n\n`);
+    // Extract business information if mentioned
+    extractBusinessInfo(message, fullResponse, userId || sessionId);
 
-      // Add assistant response to history (without quick replies marker)
-      conversationHistory.push({
-        role: 'assistant',
-        content: cleanedResponse || fullResponse
-      });
-
-      // Extract business information if mentioned
-      extractBusinessInfo(message, fullResponse, userId || sessionId);
-
-      // Close the stream
-      res.write(`data: [DONE]\n\n`);
-      res.end();
-    } catch (jsonError) {
-      console.error('Error serializing response:', jsonError);
-      // Fallback: send response without quick replies
-      try {
-        res.write(`data: ${JSON.stringify({
-          type: 'done',
-          fullResponse: cleanedResponse || fullResponse || 'I apologize, but I encountered an issue processing your message.',
-          sessionId: sessionId,
-          quickReplies: null
-        })}\n\n`);
-        res.write(`data: [DONE]\n\n`);
-        res.end();
-      } catch (fallbackError) {
-        console.error('Error in fallback response:', fallbackError);
-        // Last resort: just close the connection
-        try {
-          res.end();
-        } catch (e) {
-          // Connection already closed
-        }
-      }
-    }
+    // Close the stream
+    res.write(`data: [DONE]\n\n`);
+    res.end();
 
   } catch (error) {
     console.error('Chat streaming error:', error);

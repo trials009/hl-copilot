@@ -1,25 +1,54 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-    <meta http-equiv="Pragma" content="no-cache">
-    <meta http-equiv="Expires" content="0">
-    <title>HighLevel Copilot Widget</title>
-    <link rel="stylesheet" href="widget.css">
+    <title>HighLevel Ask AI Widget</title>
+    <link rel="stylesheet" href="widget.css?v=1.2.0">
 </head>
+
 <body>
     <div id="copilot-widget" class="copilot-widget">
         <!-- Widget Header -->
         <div class="widget-header">
             <div class="header-content">
-                <div class="header-icon">✨</div>
+                <div class="header-icon">
+                    <svg width="24" height="24" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M12.7383 5.33367L13.265 4.16701L14.4317 3.64034C14.6917 3.52034 14.6917 3.15367 14.4317 3.03367L13.265 2.50701L12.7383 1.33367C12.6183 1.07367 12.2517 1.07367 12.1317 1.33367L11.605 2.50034L10.4317 3.02701C10.1717 3.14701 10.1717 3.51367 10.4317 3.63367L11.5983 4.16034L12.125 5.33367C12.245 5.59367 12.6183 5.59367 12.7383 5.33367ZM7.43167 6.33367L6.37167 4.00034C6.13833 3.48034 5.39167 3.48034 5.15833 4.00034L4.09833 6.33367L1.765 7.39367C1.245 7.63367 1.245 8.37367 1.765 8.60701L4.09833 9.66701L5.15833 12.0003C5.39833 12.5203 6.13833 12.5203 6.37167 12.0003L7.43167 9.66701L9.765 8.60701C10.285 8.367 10.285 7.62701 9.765 7.39367L7.43167 6.33367ZM12.125 10.667L11.5983 11.8337L10.4317 12.3603C10.1717 12.4803 10.1717 12.847 10.4317 12.967L11.5983 13.4937L12.125 14.667C12.245 14.927 12.6117 14.927 12.7317 14.667L13.2583 13.5003L14.4317 12.9737C14.6917 12.8537 14.6917 12.487 14.4317 12.367L13.265 11.8403L12.7383 10.667C12.6183 10.407 12.245 10.407 12.125 10.667Z"
+                            fill="#6938EF" />
+                    </svg>
+                </div>
                 <div class="header-text">
                     <h3>Ask AI</h3>
+                    <span class="beta-badge">Beta Testing</span>
                 </div>
             </div>
-            <button class="close-btn" id="close-btn" aria-label="Close widget">×</button>
+            <div class="header-actions">
+                <button class="header-icon-btn" id="history-btn" aria-label="History" title="History">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path
+                            d="M8 0C3.58 0 0 3.58 0 8C0 12.42 3.58 16 8 16C12.42 16 16 12.42 16 8C16 3.58 12.42 0 8 0ZM8 14C4.69 14 2 11.31 2 8C2 4.69 4.69 2 8 2C11.31 2 14 4.69 14 8C14 11.31 11.31 14 8 14ZM8.5 4H7V9L11.25 11.15L12 9.92L8.5 8.25V4Z"
+                            fill="currentColor" />
+                    </svg>
+                </button>
+                <button class="header-icon-btn" id="new-chat-btn" aria-label="New Chat" title="New Chat">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M8 2V14M2 8H14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                        <path
+                            d="M8 2C4.69 2 2 4.69 2 8C2 11.31 4.69 14 8 14C11.31 14 14 11.31 14 8C14 4.69 11.31 2 8 2Z"
+                            stroke="currentColor" stroke-width="1.5" fill="none" />
+                    </svg>
+                </button>
+                <button class="header-icon-btn" id="maximize-btn" aria-label="Maximize" title="Maximize">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M2 2H6V4H4V6H2V2ZM10 2H14V6H12V4H10V2ZM2 10V14H6V12H4V10H2ZM14 10V14H10V12H12V10H14Z"
+                            fill="currentColor" />
+                    </svg>
+                </button>
+                <button class="close-btn" id="close-btn" aria-label="Close widget">×</button>
+            </div>
         </div>
 
         <!-- Main Content Area -->
@@ -38,16 +67,20 @@
                     <!-- Messages will be dynamically added here -->
                 </div>
                 <div class="chat-input-container">
-                    <input 
-                        type="text" 
-                        id="chat-input" 
-                        class="chat-input" 
-                        placeholder="Ask anything..."
-                        autocomplete="off"
-                    >
-                    <button class="send-btn" id="send-btn" aria-label="Send">
-                        <span class="send-icon">✨</span>
-                    </button>
+                    <div class="chat-suggestion-text" id="chat-suggestion-text" style="display: none;">
+                        Type your request below or start with one of these suggestions
+                    </div>
+                    <div class="chat-input-wrapper">
+                        <input type="text" id="chat-input" class="chat-input" placeholder="Ask anything..."
+                            autocomplete="off">
+                        <button class="send-btn" id="send-btn" aria-label="Send message">
+                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path d="M18 2L9 11M18 2L12 18L9 11M18 2L2 8L9 11" stroke="currentColor"
+                                    stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -118,7 +151,7 @@
         </div>
     </div>
 
-    <script src="widget.js"></script>
+    <script src="widget.js?v=1.2.0"></script>
 </body>
-</html>
 
+</html>

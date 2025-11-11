@@ -1,33 +1,25 @@
 /**
- * HighLevel Copilot Integration
- * 
- * Professional integration for HighLevel sandbox environment
- * 
- * INSTRUCTIONS:
- * 1. Deploy backend to Vercel (see VERCEL_DEPLOYMENT.md)
- * 2. Copy your Vercel deployment URL
+ * HighLevel Ask AI Integration
+    *
+    * Professional integration for HighLevel sandbox environment
+    *
+    * INSTRUCTIONS:
+    * 1. Deploy backend to Vercel (see VERCEL_DEPLOYMENT.md)
+    * 2. Copy your Vercel deployment URL
  * 3. In HighLevel: Settings > Company > Custom JavaScript & Custom CSS
- *    (For Agency view - this is where Custom JS is located)
- * 4. Paste the CSS from highlevel-integration.css into the "Custom CSS" section
- * 5. Paste this JavaScript code into the "Custom JS" section
- * 6. Update COPILOT_API_URL below (line ~40) with your Vercel URL
- * 7. After each Vercel deployment, update widgetVersion (line ~117) to force cache refresh
- *    Example: Change 'v1.0.3' to 'v1.0.4' after deploying new changes
- * 8. Save and reload HighLevel
- * 
- * IMPORTANT: Based on HighLevel documentation:
+    *    (For Agency view - this is where Custom JS is located)
+    * 4. Paste the CSS from highlevel-integration.css into the "Custom CSS" section
+    * 5. Paste this JavaScript code into the "Custom JS" section
+    * 6. Update COPILOT_API_URL below (line ~30)
+    * 7. Save and reload HighLevel
+    *
+    * IMPORTANT: Based on HighLevel documentation:
  * - Custom JS and CSS are in separate sections in Settings > Company > Custom JavaScript & Custom CSS
- * - Code must be self-contained (no remote file references)
- * - HighLevel will automatically wrap this in <script> tags, so don't include them
- * 
- * DESIGN:
- * - Purple gradient button (matches widget design: #667eea to #764ba2)
- * - Widget starts directly in chat mode (no welcome screen)
- * - Modern design with smooth animations and transitions
- * - Responsive for mobile devices
- * 
- * The Copilot will appear as a floating button (✨ Ask AI) in the bottom-right corner of HighLevel's interface
- */
+    * - Code must be self-contained (no remote file references)
+    * - HighLevel will automatically wrap this in <script> tags, so don't include them
+        *
+        * The Ask AI widget will appear as a floating button in HighLevel's interface
+        */
 
 (function () {
     'use strict';
@@ -38,8 +30,7 @@
 
     // Your Vercel deployment URL (or localhost for dev)
     // IMPORTANT: Replace with your actual Vercel URL after deployment
-    // Example: const COPILOT_API_URL = 'https://your-app.vercel.app';
-    const COPILOT_API_URL = 'https://hands-on-ai.vercel.app'; // ⚠️ UPDATE THIS with your Vercel URL!
+    const COPILOT_API_URL = 'https://hands-on-ai.vercel.app'; // Change this!
 
     // For local development, use:
     // const COPILOT_API_URL = 'http://localhost:3000';
@@ -60,17 +51,14 @@
 
     const COPILOT_USER_ID = getHighLevelUserId();
 
-    // Widget styling configuration (matches latest widget design)
+    // Widget styling configuration
     const WIDGET_CONFIG = {
         position: 'bottom-right',
         width: '420px',
         height: '650px',
         zIndex: 999999, // High z-index to appear above HighLevel UI
         buttonSize: '64px',
-        buttonOffset: '24px',
-        primaryColor: '#667eea',
-        secondaryColor: '#764ba2',
-        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+        buttonOffset: '24px'
     };
 
     // ============================================
@@ -113,20 +101,17 @@
             id: 'hl-copilot-widget-container'
         });
 
-        // Create iframe (widget starts directly in chat mode)
-        // Add cache-busting query parameter to ensure fresh content after deployments
-        // IMPORTANT: Update widgetVersion when deploying new versions to force cache refresh
-        const widgetVersion = 'v1.0.4'; // ⚠️ UPDATE THIS when deploying new versions
-        const getCacheBuster = () => `?v=${widgetVersion}&_=${Date.now()}&cb=${Math.random().toString(36).substring(7)}`;
+        // Create iframe with cache-busting to ensure latest widget version loads
+        // Version parameter ensures iframe loads fresh content after updates
+        // Update version number when making significant widget changes
+        const widgetVersion = 'v1.2.0'; // Updated for Ask AI theme refresh
+        // Use both version and timestamp for maximum cache-busting
+        const cacheBuster = new Date().getTime();
         iframe = createElement('iframe', {
             id: 'hl-copilot-iframe',
-            src: `${COPILOT_API_URL}/widget/widget.html${getCacheBuster()}`,
+            src: `${COPILOT_API_URL}/widget/widget.html?v=${widgetVersion}&t=${cacheBuster}&_=${Date.now()}`,
             allow: 'clipboard-read; clipboard-write',
-            // Safari-compatible sandbox: allow all necessary permissions
-            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
-            title: 'HighLevel Copilot Assistant',
-            // Safari-specific: ensure iframe can load content
-            loading: 'eager'
+            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox'
         });
 
         // Configure iframe communication
@@ -145,18 +130,6 @@
             } catch (e) {
                 console.warn('Could not configure iframe:', e);
             }
-        };
-
-        // Safari-specific: Handle iframe load errors
-        iframe.onerror = function (e) {
-            console.error('Iframe load error:', e);
-            // Force reload on error (Safari cache issue)
-            setTimeout(() => {
-                if (iframe && iframe.parentNode) {
-                    const newSrc = iframe.src.split('?')[0] + getCacheBuster();
-                    iframe.src = newSrc;
-                }
-            }, 1000);
         };
 
         widgetContainer.appendChild(iframe);
@@ -185,21 +158,29 @@
             }
         });
 
-        // HighLevel Copilot initialized successfully
+        // HighLevel Ask AI initialized successfully
     }
 
     function createToggleButton() {
+        // Create button with copilot icon SVG (matching Ask AI theme)
+        const copilotIconSVG = '<svg width="28" height="28" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.7383 5.33367L13.265 4.16701L14.4317 3.64034C14.6917 3.52034 14.6917 3.15367 14.4317 3.03367L13.265 2.50701L12.7383 1.33367C12.6183 1.07367 12.2517 1.07367 12.1317 1.33367L11.605 2.50034L10.4317 3.02701C10.1717 3.14701 10.1717 3.51367 10.4317 3.63367L11.5983 4.16034L12.125 5.33367C12.245 5.59367 12.6183 5.59367 12.7383 5.33367ZM7.43167 6.33367L6.37167 4.00034C6.13833 3.48034 5.39167 3.48034 5.15833 4.00034L4.09833 6.33367L1.765 7.39367C1.245 7.63367 1.245 8.37367 1.765 8.60701L4.09833 9.66701L5.15833 12.0003C5.39833 12.5203 6.13833 12.5203 6.37167 12.0003L7.43167 9.66701L9.765 8.60701C10.285 8.367 10.285 7.62701 9.765 7.39367L7.43167 6.33367ZM12.125 10.667L11.5983 11.8337L10.4317 12.3603C10.1717 12.4803 10.1717 12.847 10.4317 12.967L11.5983 13.4937L12.125 14.667C12.245 14.927 12.6117 14.927 12.7317 14.667L13.2583 13.5003L14.4317 12.9737C14.6917 12.8537 14.6917 12.487 14.4317 12.367L13.265 11.8403L12.7383 10.667C12.6183 10.407 12.245 10.407 12.125 10.667Z" fill="white"/></svg>';
+        const closeIconSVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
         toggleButton = createElement('button', {
             id: 'hl-copilot-toggle-btn',
-            innerHTML: '✨', // Ask AI icon (sparkles represent AI assistance)
-            title: 'Ask AI - Open Copilot Assistant',
-            'aria-label': 'Ask AI - Toggle Copilot Assistant'
+            innerHTML: copilotIconSVG,
+            title: 'Open Ask AI',
+            'aria-label': 'Toggle Ask AI'
         });
 
         toggleButton.addEventListener('click', function (e) {
             e.stopPropagation();
             toggleWidget();
         });
+
+        // Store SVG icons for toggle
+        toggleButton.copilotIcon = copilotIconSVG;
+        toggleButton.closeIcon = closeIconSVG;
 
         document.body.appendChild(toggleButton);
     }
@@ -218,47 +199,12 @@
         if (widgetContainer) {
             widgetContainer.style.display = 'block';
             toggleButton.classList.add('active');
-            toggleButton.innerHTML = '✕';
-            toggleButton.title = 'Close Copilot Assistant';
-
-            // Force reload iframe with fresh cache-busting to ensure latest content
-            // This ensures the iframe always loads the latest HTML after deployments
-            if (iframe) {
-                const baseUrl = `${COPILOT_API_URL}/widget/widget.html`;
-                const widgetVersion = 'v1.0.4'; // Must match version above
-                const newCacheBuster = `?v=${widgetVersion}&_=${Date.now()}&cb=${Math.random().toString(36).substring(7)}&reload=${Date.now()}`;
-                // Remove old iframe and create new one to force complete reload
-                const oldIframe = iframe;
-                iframe = createElement('iframe', {
-                    id: 'hl-copilot-iframe',
-                    src: baseUrl + newCacheBuster,
-                    allow: 'clipboard-read; clipboard-write',
-                    // Safari-compatible sandbox: allow all necessary permissions
-                    sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
-                    title: 'HighLevel Copilot Assistant',
-                    loading: 'eager'
-                });
-                // Replace old iframe with new one
-                if (oldIframe.parentNode) {
-                    oldIframe.parentNode.replaceChild(iframe, oldIframe);
-                }
-                // Re-attach onload handler
-                iframe.onload = function () {
-                    try {
-                        const iframeWindow = iframe.contentWindow;
-                        if (iframeWindow) {
-                            iframeWindow.postMessage({
-                                type: 'copilot-config',
-                                apiUrl: COPILOT_API_URL,
-                                userId: COPILOT_USER_ID,
-                                source: 'highlevel'
-                            }, '*');
-                        }
-                    } catch (e) {
-                        console.warn('Could not configure iframe:', e);
-                    }
-                };
+            if (toggleButton.closeIcon) {
+                toggleButton.innerHTML = toggleButton.closeIcon;
+            } else {
+                toggleButton.innerHTML = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M18 6L6 18M6 6L18 18" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
             }
+            toggleButton.title = 'Close Ask AI';
 
             // Focus iframe for keyboard navigation
             setTimeout(() => {
@@ -277,8 +223,12 @@
         if (widgetContainer) {
             widgetContainer.style.display = 'none';
             toggleButton.classList.remove('active');
-            toggleButton.innerHTML = '✨'; // Ask AI icon
-            toggleButton.title = 'Ask AI - Open Copilot Assistant';
+            if (toggleButton.copilotIcon) {
+                toggleButton.innerHTML = toggleButton.copilotIcon;
+            } else {
+                toggleButton.innerHTML = '<svg width="28" height="28" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12.7383 5.33367L13.265 4.16701L14.4317 3.64034C14.6917 3.52034 14.6917 3.15367 14.4317 3.03367L13.265 2.50701L12.7383 1.33367C12.6183 1.07367 12.2517 1.07367 12.1317 1.33367L11.605 2.50034L10.4317 3.02701C10.1717 3.14701 10.1717 3.51367 10.4317 3.63367L11.5983 4.16034L12.125 5.33367C12.245 5.59367 12.6183 5.59367 12.7383 5.33367ZM7.43167 6.33367L6.37167 4.00034C6.13833 3.48034 5.39167 3.48034 5.15833 4.00034L4.09833 6.33367L1.765 7.39367C1.245 7.63367 1.245 8.37367 1.765 8.60701L4.09833 9.66701L5.15833 12.0003C5.39833 12.5203 6.13833 12.5203 6.37167 12.0003L7.43167 9.66701L9.765 8.60701C10.285 8.367 10.285 7.62701 9.765 7.39367L7.43167 6.33367ZM12.125 10.667L11.5983 11.8337L10.4317 12.3603C10.1717 12.4803 10.1717 12.847 10.4317 12.967L11.5983 13.4937L12.125 14.667C12.245 14.927 12.6117 14.927 12.7317 14.667L13.2583 13.5003L14.4317 12.9737C14.6917 12.8537 14.6917 12.487 14.4317 12.367L13.265 11.8403L12.7383 10.667C12.6183 10.407 12.245 10.407 12.125 10.667Z" fill="white"/></svg>';
+            }
+            toggleButton.title = 'Open Ask AI';
         }
         isOpen = false;
     }

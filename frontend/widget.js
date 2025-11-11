@@ -43,6 +43,19 @@ class CopilotWidget {
         return `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
     }
 
+    scrollToBottom(smooth = true) {
+        const messagesContainer = document.getElementById('chat-messages');
+        if (!messagesContainer) return;
+
+        // Use requestAnimationFrame to ensure DOM is updated
+        requestAnimationFrame(() => {
+            messagesContainer.scrollTo({
+                top: messagesContainer.scrollHeight,
+                behavior: smooth ? 'smooth' : 'auto'
+            });
+        });
+    }
+
     init() {
         this.setupEventListeners();
         this.checkFacebookConnection();
@@ -202,7 +215,7 @@ class CopilotWidget {
         };
 
         const options = detected.map(d => industryMap[d]).filter(Boolean);
-        
+
         // Add common options if URL-based detection found some
         if (options.length > 0) {
             // Add 2-3 other common options not already included
@@ -216,7 +229,7 @@ class CopilotWidget {
             // No URL context - show diverse options
             options.push('Restaurant & Food', 'Fitness & Health', 'E-commerce', 'Professional Services');
         }
-        
+
         options.push('Other'); // Always include Other
         return options;
     }
@@ -235,7 +248,10 @@ class CopilotWidget {
         if (showWelcome && !hasMessages) {
             // Show immediate welcome message with quick replies
             setTimeout(() => {
-                this.addMessage('assistant', "Hello! I'm your Copilot assistant. I'd love to learn about your business. What industry are you in?");
+                // Get user name if available, otherwise use generic greeting
+                const userName = window.COPILOT_USER_NAME || 'there';
+                const greeting = userName !== 'there' ? `Hi ${userName}, How can I help?` : "Hi there, How can I help?";
+                this.addMessage('assistant', greeting, false, true); // isGreeting = true
                 // Generate and show quick replies based on URL
                 setTimeout(() => {
                     const industryOptions = this.getIndustryOptionsFromUrl();
@@ -247,11 +263,17 @@ class CopilotWidget {
 
     showQuickReplies(replies) {
         const messagesContainer = document.getElementById('chat-messages');
-        
+        const suggestionText = document.getElementById('chat-suggestion-text');
+
+        // Show suggestion text
+        if (suggestionText) {
+            suggestionText.style.display = 'block';
+        }
+
         // Remove any existing quick reply containers to avoid duplicates
         const existingQuickReplies = messagesContainer.querySelectorAll('.quick-replies-container');
         existingQuickReplies.forEach(container => container.remove());
-        
+
         const quickRepliesContainer = document.createElement('div');
         quickRepliesContainer.className = 'quick-replies-container';
 
@@ -262,17 +284,19 @@ class CopilotWidget {
             button.addEventListener('click', () => {
                 this.selectQuickReply(reply);
                 quickRepliesContainer.remove();
+                // Hide suggestion text when a quick reply is selected
+                if (suggestionText) {
+                    suggestionText.style.display = 'none';
+                }
             });
             quickRepliesContainer.appendChild(button);
         });
 
         messagesContainer.appendChild(quickRepliesContainer);
 
-        // Scroll to show quick replies
+        // Scroll to show quick replies - ensure DOM is updated first
         setTimeout(() => {
-            requestAnimationFrame(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            });
+            this.scrollToBottom(true);
         }, 100);
     }
 
@@ -282,21 +306,26 @@ class CopilotWidget {
         if (input) {
             const replyLower = reply.toLowerCase();
             console.log('Reply lowercase:', replyLower);
-            
+
             // Handle special quick reply actions with flexible matching
-            
+
             // Facebook connection actions
             if (replyLower.includes('connect') && replyLower.includes('facebook')) {
                 console.log('Detected Connect Facebook - connecting directly');
                 // Remove quick replies
                 const quickReplyContainers = document.querySelectorAll('.quick-replies-container');
                 quickReplyContainers.forEach(container => container.remove());
-                
+                // Hide suggestion text
+                const suggestionText = document.getElementById('chat-suggestion-text');
+                if (suggestionText) {
+                    suggestionText.style.display = 'none';
+                }
+
                 // Connect Facebook directly without showing connection screen
                 this.connectFacebook();
                 return;
             }
-            
+
             // Calendar/Post generation actions
             if ((replyLower.includes('generate') && (replyLower.includes('calendar') || replyLower.includes('post'))) ||
                 (replyLower.includes('schedule') && replyLower.includes('post')) ||
@@ -313,9 +342,9 @@ class CopilotWidget {
                 }
                 return;
             }
-            
+
             // Skip/dismiss actions
-            if (replyLower === 'skip for now' || replyLower === 'not yet' || 
+            if (replyLower === 'skip for now' || replyLower === 'not yet' ||
                 replyLower === 'skip' || replyLower === 'maybe later') {
                 // Continue conversation - don't send message, just remove quick replies
                 return;
@@ -500,13 +529,8 @@ class CopilotWidget {
                                         typingIndicator.remove();
                                     }
                                     assistantMessageEl.textContent = fullResponse;
-                                    // Scroll to bottom smoothly (use requestAnimationFrame for reliable scrolling)
-                                    const messagesContainer = document.getElementById('chat-messages');
-                                    if (messagesContainer) {
-                                        requestAnimationFrame(() => {
-                                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                                        });
-                                    }
+                                    // Scroll to bottom during streaming (auto scroll for better UX during typing)
+                                    this.scrollToBottom(false);
                                 }
                             } else if (parsed.type === 'done') {
                                 // Final response with quick replies
@@ -514,15 +538,10 @@ class CopilotWidget {
                                 if (assistantMessageEl) {
                                     assistantMessageEl.textContent = fullResponse;
                                 }
-                                
-                                // Scroll to bottom after final message
-                                const messagesContainer = document.getElementById('chat-messages');
-                                if (messagesContainer) {
-                                    requestAnimationFrame(() => {
-                                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-                                    });
-                                }
-                                
+
+                                // Scroll after content update
+                                this.scrollToBottom(true);
+
                                 // Show dynamically generated quick replies if available
                                 if (parsed.quickReplies && Array.isArray(parsed.quickReplies) && parsed.quickReplies.length > 0) {
                                     setTimeout(() => {
@@ -554,7 +573,7 @@ class CopilotWidget {
         }
     }
 
-    addMessage(role, content, isStreaming = false) {
+    addMessage(role, content, isStreaming = false, isGreeting = false) {
         const messagesContainer = document.getElementById('chat-messages');
         const messageDiv = document.createElement('div');
         messageDiv.className = `message ${role} message-enter`;
@@ -565,10 +584,31 @@ class CopilotWidget {
 
         const avatar = document.createElement('div');
         avatar.className = 'message-avatar';
-        avatar.textContent = role === 'user' ? '👤' : '🤖';
+
+        if (role === 'user') {
+            // Use SVG icon for user
+            avatar.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M10 10C12.7614 10 15 7.76142 15 5C15 2.23858 12.7614 0 10 0C7.23858 0 5 2.23858 5 5C5 7.76142 7.23858 10 10 10Z" fill="white"/>
+                    <path d="M10 12C5.58172 12 2 13.7909 2 16V20H18V16C18 13.7909 14.4183 12 10 12Z" fill="white"/>
+                </svg>
+            `;
+        } else {
+            // Use copilot icon for assistant (matching header theme)
+            avatar.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12.7383 5.33367L13.265 4.16701L14.4317 3.64034C14.6917 3.52034 14.6917 3.15367 14.4317 3.03367L13.265 2.50701L12.7383 1.33367C12.6183 1.07367 12.2517 1.07367 12.1317 1.33367L11.605 2.50034L10.4317 3.02701C10.1717 3.14701 10.1717 3.51367 10.4317 3.63367L11.5983 4.16034L12.125 5.33367C12.245 5.59367 12.6183 5.59367 12.7383 5.33367ZM7.43167 6.33367L6.37167 4.00034C6.13833 3.48034 5.39167 3.48034 5.15833 4.00034L4.09833 6.33367L1.765 7.39367C1.245 7.63367 1.245 8.37367 1.765 8.60701L4.09833 9.66701L5.15833 12.0003C5.39833 12.5203 6.13833 12.5203 6.37167 12.0003L7.43167 9.66701L9.765 8.60701C10.285 8.367 10.285 7.62701 9.765 7.39367L7.43167 6.33367ZM12.125 10.667L11.5983 11.8337L10.4317 12.3603C10.1717 12.4803 10.1717 12.847 10.4317 12.967L11.5983 13.4937L12.125 14.667C12.245 14.927 12.6117 14.927 12.7317 14.667L13.2583 13.5003L14.4317 12.9737C14.6917 12.8537 14.6917 12.487 14.4317 12.367L13.265 11.8403L12.7383 10.667C12.6183 10.407 12.245 10.407 12.125 10.667Z" fill="#6938EF"/>
+                </svg>
+            `;
+        }
 
         const messageContent = document.createElement('div');
         messageContent.className = 'message-content';
+
+        // Add greeting class for purple styling
+        if (isGreeting) {
+            messageContent.classList.add('greeting');
+        }
 
         if (isStreaming && role === 'assistant') {
             // Show typing indicator
@@ -588,10 +628,8 @@ class CopilotWidget {
         messageDiv.appendChild(messageContent);
         messagesContainer.appendChild(messageDiv);
 
-        // Scroll to bottom (use scrollTop for immediate scroll, then smooth if needed)
-        requestAnimationFrame(() => {
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        });
+        // Scroll to bottom with smooth behavior
+        this.scrollToBottom(true);
 
         // Remove enter animation class after animation
         setTimeout(() => {
@@ -624,22 +662,22 @@ class CopilotWidget {
                 // Note: The facebook-connected message handler will handle the success
                 let checkCount = 0;
                 const maxChecks = 120; // 60 seconds (120 checks * 500ms)
-                
+
                 const checkClosed = setInterval(() => {
                     checkCount++;
-                    
+
                     // Check if window is closed or timeout reached
                     if (authWindow.closed || checkCount >= maxChecks) {
                         clearInterval(checkClosed);
                         this.hideLoading();
-                        
+
                         if (checkCount >= maxChecks) {
                             console.warn('Facebook OAuth popup check timeout');
                             this.showToast('Connection timeout. Please try again.', 'error');
                         }
-                        
+
                         this.checkFacebookConnection();
-                        
+
                         // Don't call showChatScreen() here - it resets the conversation
                         // The message handler will show the success toast and preserve conversation
                         // If we're not in chat screen, navigate back to chat without resetting
@@ -664,7 +702,7 @@ class CopilotWidget {
         try {
             // Show loading message in chat
             this.addMessage('assistant', 'Generating your 30-day content calendar... This may take a moment.');
-            
+
             const response = await this.fetchWithRetry(`${this.apiUrl}/api/calendar/generate`, {
                 method: 'POST',
                 headers: {
@@ -679,10 +717,10 @@ class CopilotWidget {
 
             if (data.success && data.calendar) {
                 this.calendar = data.calendar;
-                
+
                 // Show success message
                 this.addMessage('assistant', `Great! I've generated ${data.calendar.length} posts for your 30-day calendar. Here they are:`);
-                
+
                 // Display posts inline in chat
                 setTimeout(() => {
                     this.displayPostsInChat(data.calendar);
@@ -707,7 +745,7 @@ class CopilotWidget {
             const weekStart = new Date(date);
             weekStart.setDate(date.getDate() - date.getDay()); // Get Sunday of that week
             const weekKey = weekStart.toISOString().split('T')[0];
-            
+
             if (!postsByWeek[weekKey]) {
                 postsByWeek[weekKey] = [];
             }
@@ -720,7 +758,7 @@ class CopilotWidget {
             const weekStart = new Date(weekKey);
             const weekEnd = new Date(weekStart);
             weekEnd.setDate(weekEnd.getDate() + 6);
-            
+
             const weekHeader = document.createElement('div');
             weekHeader.className = 'message assistant week-header';
             weekHeader.innerHTML = `
@@ -751,31 +789,29 @@ class CopilotWidget {
         // Add event listeners
         const scheduleAllBtn = document.getElementById('schedule-all-inline-btn');
         const viewCalendarBtn = document.getElementById('view-calendar-inline-btn');
-        
+
         if (scheduleAllBtn) {
             scheduleAllBtn.addEventListener('click', () => {
                 this.scheduleAllPosts();
             });
         }
-        
+
         if (viewCalendarBtn) {
             viewCalendarBtn.addEventListener('click', () => {
                 this.showCalendarScreen();
             });
         }
 
-        // Scroll to bottom
+        // Scroll to bottom - ensure DOM is updated first
         setTimeout(() => {
-            requestAnimationFrame(() => {
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            });
+            this.scrollToBottom(true);
         }, 100);
     }
 
     createPostMessage(post, index) {
         const postDiv = document.createElement('div');
         postDiv.className = 'message assistant post-message';
-        
+
         const date = new Date(post.date);
         const formattedDate = date.toLocaleDateString('en-US', {
             weekday: 'short',
@@ -987,16 +1023,16 @@ class CopilotWidget {
         // Create calendar days
         const currentDay = new Date(startDay);
         const today = new Date().toDateString();
-        
+
         while (currentDay <= endDay) {
             const dayCell = document.createElement('div');
             dayCell.className = 'calendar-day';
-            
+
             const dateKey = currentDay.toDateString();
             const isOtherMonth = currentDay.getMonth() !== startDate.getMonth();
             const isToday = dateKey === today;
             const postsForDay = postsByDate[dateKey] || [];
-            
+
             if (isOtherMonth) {
                 dayCell.classList.add('other-month');
             }
@@ -1020,11 +1056,11 @@ class CopilotWidget {
             });
 
             calendarGrid.appendChild(dayCell);
-            
+
             // Move to next day
             currentDay.setDate(currentDay.getDate() + 1);
         }
-        
+
         console.log(`✅ Calendar rendered successfully with ${calendarGrid.children.length} day cells`);
     }
 
@@ -1175,7 +1211,7 @@ class CopilotWidget {
     toggleMaximizeCalendar() {
         const calendarScreen = document.getElementById('calendar-screen');
         const maximizeBtn = document.getElementById('maximize-calendar-btn');
-        
+
         if (calendarScreen.classList.contains('maximized')) {
             calendarScreen.classList.remove('maximized');
             if (maximizeBtn) maximizeBtn.textContent = '⛶';
@@ -1638,4 +1674,3 @@ window.addEventListener('message', (event) => {
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = CopilotWidget;
 }
-
