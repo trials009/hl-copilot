@@ -1478,27 +1478,31 @@ body {
 
 .post-actions-inline {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     margin-top: 12px;
     padding-top: 12px;
     border-top: 1px solid #e5e7eb;
+    justify-content: flex-start;
 }
 
 .post-actions-inline button {
-    flex: 1;
-    padding: 8px 12px;
+    flex: 0 0 auto;
+    padding: 6px 10px;
     border: none;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    white-space: nowrap;
 }
 
 .btn-edit-inline,
 .btn-preview-inline {
     background: #f3f4f6;
     color: #374151;
+    padding: 5px 9px;
+    font-size: 11px;
 }
 
 .btn-edit-inline:hover,
@@ -1509,6 +1513,8 @@ body {
 .btn-schedule-inline {
     background: var(--hl-primary);
     color: white;
+    padding: 5px 9px;
+    font-size: 11px;
 }
 
 .btn-schedule-inline:hover {
@@ -1519,6 +1525,8 @@ body {
 .btn-schedule-inline.btn-scheduled {
     background: var(--hl-success);
     cursor: not-allowed;
+    padding: 5px 9px;
+    font-size: 11px;
 }
 
 .week-header {
