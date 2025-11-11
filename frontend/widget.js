@@ -250,7 +250,7 @@ class CopilotWidget {
             setTimeout(() => {
                 // Get user name if available, otherwise use generic greeting
                 const userName = window.COPILOT_USER_NAME || 'there';
-                const greeting = userName !== 'there' ? `Hi ${userName}, How can I help?` : "Hi there, How can I help?";
+                const greeting = userName !== 'there' ? `Hi ${userName}, how can I help?` : "Hi there, how can I help?";
                 this.addMessage('assistant', greeting, false, true); // isGreeting = true
                 // Generate and show quick replies based on URL
                 setTimeout(() => {

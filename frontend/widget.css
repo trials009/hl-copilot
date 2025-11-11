@@ -50,6 +50,10 @@
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     border-bottom: 1px solid #e5e7eb;
     transition: var(--hl-transition);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    flex-shrink: 0;
 }
 
 .header-actions {
@@ -158,14 +162,23 @@
 /* Content Area */
 .widget-content {
     flex: 1;
-    overflow-y: auto;
-    padding: 10px;
+    overflow: hidden;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
 }
 
 /* Welcome Screen */
 .welcome-screen {
     text-align: center;
     padding: 40px 20px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    min-height: 0;
 }
 
 .welcome-icon {
@@ -236,17 +249,23 @@
 .chat-container {
     display: flex;
     flex-direction: column;
-    height: 100%;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    position: relative;
 }
 
 .chat-messages {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 10px 10px 10px 10px;
     /* Match header left padding to align messages with copilot icon */
     display: flex;
     flex-direction: column;
     gap: 16px;
+    min-height: 0;
+    height: 100%;
 }
 
 .message {
@@ -359,6 +378,11 @@
     /* Top and left padding match chat messages (10px) to align with content */
     border-top: 1px solid #e5e7eb;
     background: #ffffff;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    flex-shrink: 0;
+    width: 100%;
 }
 
 .chat-suggestion-text {
