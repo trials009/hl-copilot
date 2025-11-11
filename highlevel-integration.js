@@ -12,7 +12,7 @@
  * 5. Paste this JavaScript code into the "Custom JS" section
  * 6. Update COPILOT_API_URL below (line ~40) with your Vercel URL
  * 7. After each Vercel deployment, update widgetVersion (line ~117) to force cache refresh
- *    Example: Change 'v1.0.1' to 'v1.0.2' after deploying new changes
+ *    Example: Change 'v1.0.3' to 'v1.0.4' after deploying new changes
  * 8. Save and reload HighLevel
  * 
  * IMPORTANT: Based on HighLevel documentation:
@@ -116,14 +116,17 @@
         // Create iframe (widget starts directly in chat mode)
         // Add cache-busting query parameter to ensure fresh content after deployments
         // IMPORTANT: Update widgetVersion when deploying new versions to force cache refresh
-        const widgetVersion = 'v1.0.1'; // ⚠️ UPDATE THIS when deploying new versions
-        const cacheBuster = `?v=${widgetVersion}&_=${Date.now()}`;
+        const widgetVersion = 'v1.0.4'; // ⚠️ UPDATE THIS when deploying new versions
+        const getCacheBuster = () => `?v=${widgetVersion}&_=${Date.now()}&cb=${Math.random().toString(36).substring(7)}`;
         iframe = createElement('iframe', {
             id: 'hl-copilot-iframe',
-            src: `${COPILOT_API_URL}/widget/widget.html${cacheBuster}`,
+            src: `${COPILOT_API_URL}/widget/widget.html${getCacheBuster()}`,
             allow: 'clipboard-read; clipboard-write',
-            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox',
-            title: 'HighLevel Copilot Assistant'
+            // Safari-compatible sandbox: allow all necessary permissions
+            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
+            title: 'HighLevel Copilot Assistant',
+            // Safari-specific: ensure iframe can load content
+            loading: 'eager'
         });
 
         // Configure iframe communication
@@ -142,6 +145,18 @@
             } catch (e) {
                 console.warn('Could not configure iframe:', e);
             }
+        };
+
+        // Safari-specific: Handle iframe load errors
+        iframe.onerror = function (e) {
+            console.error('Iframe load error:', e);
+            // Force reload on error (Safari cache issue)
+            setTimeout(() => {
+                if (iframe && iframe.parentNode) {
+                    const newSrc = iframe.src.split('?')[0] + getCacheBuster();
+                    iframe.src = newSrc;
+                }
+            }, 1000);
         };
 
         widgetContainer.appendChild(iframe);
@@ -205,6 +220,45 @@
             toggleButton.classList.add('active');
             toggleButton.innerHTML = '✕';
             toggleButton.title = 'Close Copilot Assistant';
+
+            // Force reload iframe with fresh cache-busting to ensure latest content
+            // This ensures the iframe always loads the latest HTML after deployments
+            if (iframe) {
+                const baseUrl = `${COPILOT_API_URL}/widget/widget.html`;
+                const widgetVersion = 'v1.0.4'; // Must match version above
+                const newCacheBuster = `?v=${widgetVersion}&_=${Date.now()}&cb=${Math.random().toString(36).substring(7)}&reload=${Date.now()}`;
+                // Remove old iframe and create new one to force complete reload
+                const oldIframe = iframe;
+                iframe = createElement('iframe', {
+                    id: 'hl-copilot-iframe',
+                    src: baseUrl + newCacheBuster,
+                    allow: 'clipboard-read; clipboard-write',
+                    // Safari-compatible sandbox: allow all necessary permissions
+                    sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox allow-top-navigation-by-user-activation',
+                    title: 'HighLevel Copilot Assistant',
+                    loading: 'eager'
+                });
+                // Replace old iframe with new one
+                if (oldIframe.parentNode) {
+                    oldIframe.parentNode.replaceChild(iframe, oldIframe);
+                }
+                // Re-attach onload handler
+                iframe.onload = function () {
+                    try {
+                        const iframeWindow = iframe.contentWindow;
+                        if (iframeWindow) {
+                            iframeWindow.postMessage({
+                                type: 'copilot-config',
+                                apiUrl: COPILOT_API_URL,
+                                userId: COPILOT_USER_ID,
+                                source: 'highlevel'
+                            }, '*');
+                        }
+                    } catch (e) {
+                        console.warn('Could not configure iframe:', e);
+                    }
+                };
+            }
 
             // Focus iframe for keyboard navigation
             setTimeout(() => {

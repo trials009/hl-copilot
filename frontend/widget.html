@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>HighLevel Copilot Widget</title>
     <link rel="stylesheet" href="widget.css">
 </head>
@@ -11,10 +14,9 @@
         <!-- Widget Header -->
         <div class="widget-header">
             <div class="header-content">
-                <div class="header-icon">🤖</div>
+                <div class="header-icon">✨</div>
                 <div class="header-text">
-                    <h3>Copilot Assistant</h3>
-                    <span class="status-indicator" id="status-indicator">Online</span>
+                    <h3>Ask AI</h3>
                 </div>
             </div>
             <button class="close-btn" id="close-btn" aria-label="Close widget">×</button>
@@ -40,10 +42,12 @@
                         type="text" 
                         id="chat-input" 
                         class="chat-input" 
-                        placeholder="Type your message..."
+                        placeholder="Ask anything..."
                         autocomplete="off"
                     >
-                    <button class="send-btn" id="send-btn">Send</button>
+                    <button class="send-btn" id="send-btn" aria-label="Send">
+                        <span class="send-icon">✨</span>
+                    </button>
                 </div>
             </div>
 
