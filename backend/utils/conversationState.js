@@ -37,12 +37,7 @@ const StateSchema = {
 function determineNextState(state) {
     const { currentState, businessProfile, userResponseCount, facebookConnected, conversationHistory } = state;
 
-    // Count real user responses (excluding greetings)
-    const realUserResponses = conversationHistory.filter(msg => {
-        if (msg.role !== 'user') return false;
-        const trimmed = msg.content.trim();
-        return trimmed.length > 2 && !/^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmed);
-    }).length;
+    // Use userResponseCount from state (already calculated, no hardcoded filtering)
 
     // Check what information is missing
     const missingInfo = {
@@ -63,7 +58,7 @@ function determineNextState(state) {
                 return CONVERSATION_STATES.COLLECTING_AUDIENCE;
             } else if (missingInfo.tone) {
                 return CONVERSATION_STATES.COLLECTING_TONE;
-            } else if (!facebookConnected && realUserResponses >= 3) {
+            } else if (!facebookConnected && userResponseCount >= 3) {
                 return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
             } else if (facebookConnected) {
                 return CONVERSATION_STATES.POST_GENERATION_READY;
@@ -77,7 +72,7 @@ function determineNextState(state) {
                 return CONVERSATION_STATES.COLLECTING_AUDIENCE;
             } else if (missingInfo.tone) {
                 return CONVERSATION_STATES.COLLECTING_TONE;
-            } else if (!facebookConnected && realUserResponses >= 3) {
+            } else if (!facebookConnected && userResponseCount >= 3) {
                 return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
             } else if (facebookConnected) {
                 return CONVERSATION_STATES.POST_GENERATION_READY;
@@ -89,7 +84,7 @@ function determineNextState(state) {
                 return CONVERSATION_STATES.COLLECTING_AUDIENCE;
             } else if (missingInfo.tone) {
                 return CONVERSATION_STATES.COLLECTING_TONE;
-            } else if (!facebookConnected && realUserResponses >= 3) {
+            } else if (!facebookConnected && userResponseCount >= 3) {
                 return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
             } else if (facebookConnected) {
                 return CONVERSATION_STATES.POST_GENERATION_READY;
@@ -99,7 +94,7 @@ function determineNextState(state) {
         case CONVERSATION_STATES.COLLECTING_AUDIENCE:
             if (missingInfo.tone) {
                 return CONVERSATION_STATES.COLLECTING_TONE;
-            } else if (!facebookConnected && realUserResponses >= 3) {
+            } else if (!facebookConnected && userResponseCount >= 3) {
                 return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
             } else if (facebookConnected) {
                 return CONVERSATION_STATES.POST_GENERATION_READY;
@@ -135,7 +130,7 @@ function determineNextState(state) {
  * Get context reminder based on current state
  */
 function getContextReminderForState(state) {
-    const { currentState, businessProfile, facebookConnected, conversationHistory } = state;
+    const { currentState, businessProfile, facebookConnected, conversationHistory, userResponseCount } = state;
 
     const missingInfo = {
         industry: !businessProfile?.industry,
@@ -144,11 +139,7 @@ function getContextReminderForState(state) {
         tone: !businessProfile?.tone
     };
 
-    const realUserResponses = conversationHistory.filter(msg => {
-        if (msg.role !== 'user') return false;
-        const trimmed = msg.content.trim();
-        return trimmed.length > 2 && !/^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmed);
-    }).length;
+    // Use userResponseCount from state (already calculated, no hardcoded filtering)
 
     let contextReminder = '';
 
@@ -210,7 +201,7 @@ function getContextReminderForState(state) {
             const fbAsked = conversationHistory.some(msg =>
                 msg.role === 'assistant' && msg.content.toLowerCase().includes('connect facebook')
             );
-            if (!fbAsked && realUserResponses >= 3) {
+            if (!fbAsked && userResponseCount >= 3) {
                 contextReminder = '\n\n🚨 CRITICAL: The user has answered multiple questions but Facebook is NOT connected. You MUST now ask them to connect their Facebook account. Include "Connect Facebook" as a quick reply option.';
             }
             break;
@@ -229,15 +220,12 @@ function getContextReminderForState(state) {
 
 /**
  * Initialize conversation state
+ * Purely data-driven - no hardcoded patterns, relies on conversation history length and profile completeness
  */
-function initializeState(businessProfile, conversationHistory, facebookConnected, isTriggerMessage = false) {
-    // Count meaningful user responses (not just greetings or very short messages)
-    const realUserResponses = conversationHistory.filter(msg => {
-        if (msg.role !== 'user') return false;
-        const trimmed = msg.content.trim();
-        // Consider it a real response if it's longer than 2 chars and not just a greeting pattern
-        return trimmed.length > 2 && !/^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmed);
-    }).length;
+function initializeState(businessProfile, conversationHistory, facebookConnected) {
+    // Count all user messages (let LLM/system prompt determine if they're meaningful)
+    const userMessages = conversationHistory.filter(msg => msg.role === 'user');
+    const userResponseCount = userMessages.length;
 
     const missingInfo = {
         industry: !businessProfile?.industry,
@@ -246,9 +234,10 @@ function initializeState(businessProfile, conversationHistory, facebookConnected
         tone: !businessProfile?.tone
     };
 
-    // Determine initial state
+    // Determine initial state based purely on data (conversation length and profile completeness)
     let currentState = CONVERSATION_STATES.GREETING;
-    if (isTriggerMessage || realUserResponses === 0) {
+    if (userResponseCount === 0) {
+        // First interaction - always start with greeting
         currentState = CONVERSATION_STATES.GREETING;
     } else if (missingInfo.industry) {
         currentState = CONVERSATION_STATES.COLLECTING_INDUSTRY;
@@ -258,7 +247,7 @@ function initializeState(businessProfile, conversationHistory, facebookConnected
         currentState = CONVERSATION_STATES.COLLECTING_AUDIENCE;
     } else if (missingInfo.tone) {
         currentState = CONVERSATION_STATES.COLLECTING_TONE;
-    } else if (!facebookConnected && realUserResponses >= 3) {
+    } else if (!facebookConnected && userResponseCount >= 3) {
         currentState = CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
     } else if (facebookConnected) {
         currentState = CONVERSATION_STATES.POST_GENERATION_READY;
@@ -268,7 +257,7 @@ function initializeState(businessProfile, conversationHistory, facebookConnected
         currentState,
         businessProfile: businessProfile || {},
         conversationHistory,
-        userResponseCount: realUserResponses,
+        userResponseCount: userResponseCount,
         facebookConnected: facebookConnected || false,
         lastQuestionAsked: null,
         metadata: {}
@@ -285,12 +274,8 @@ function updateState(state, newBusinessProfile, newConversationHistory) {
         conversationHistory: newConversationHistory || state.conversationHistory
     };
 
-    // Recalculate user response count
-    updatedState.userResponseCount = updatedState.conversationHistory.filter(msg =>
-        msg.role === 'user' &&
-        !['hello', 'hi', 'start'].includes(msg.content.trim().toLowerCase()) &&
-        msg.content.trim().length >= 3
-    ).length;
+    // Recalculate user response count (all user messages)
+    updatedState.userResponseCount = updatedState.conversationHistory.filter(msg => msg.role === 'user').length;
 
     // Determine next state
     updatedState.currentState = determineNextState(updatedState);

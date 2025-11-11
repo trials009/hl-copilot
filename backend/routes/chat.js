@@ -18,9 +18,9 @@ const conversations = new Map();
  * Build dynamic context prompt based on conversation state
  * Uses LangGraph-based state machine for cleaner state management
  */
-function buildContextReminder(conversationHistory, facebookConnected, businessProfile = null, isTriggerMessage = false) {
-  // Initialize state using state machine
-  const state = initializeState(businessProfile, conversationHistory, facebookConnected, isTriggerMessage);
+function buildContextReminder(conversationHistory, facebookConnected, businessProfile = null) {
+  // Initialize state using state machine (no hardcoded triggers - purely data-driven)
+  const state = initializeState(businessProfile, conversationHistory, facebookConnected);
 
   // Get context reminder based on current state
   return getContextReminderForState(state);
@@ -193,12 +193,7 @@ router.post('/stream', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Determine if this is a meaningful message (not just a greeting/trigger)
-    // Store all messages, but mark very short/greeting messages for special handling
-    const trimmedMessage = message.trim();
-    const isTriggerMessage = trimmedMessage.length <= 2 || /^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmedMessage);
-
-    // Always add to history, but state machine will handle greeting detection
+    // Add all messages to history - state machine and LLM will determine intent
     conversationHistory.push({
       role: 'user',
       content: message
@@ -229,9 +224,8 @@ router.post('/stream', async (req, res) => {
     }
 
     // Add dynamic context reminder based on conversation history and business profile
-    // For trigger messages, treat as first interaction
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile, isTriggerMessage);
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile);
     if (contextReminder) {
       conversationHistory.push({
         role: 'system',
@@ -360,7 +354,7 @@ router.post('/stream', async (req, res) => {
     // Update conversation state after processing
     const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
     const updatedState = updateState(
-      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected, isTriggerMessage),
+      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected),
       updatedBusinessProfile,
       conversationHistory
     );
@@ -407,12 +401,7 @@ router.post('/', async (req, res) => {
 
     const conversationHistory = conversations.get(sessionId);
 
-    // Determine if this is a meaningful message (not just a greeting/trigger)
-    // Store all messages, but mark very short/greeting messages for special handling
-    const trimmedMessage = message.trim();
-    const isTriggerMessage = trimmedMessage.length <= 2 || /^(hi|hello|hey|start|ok|yes|no)$/i.test(trimmedMessage);
-
-    // Always add to history, but state machine will handle greeting detection
+    // Add all messages to history - state machine and LLM will determine intent
     conversationHistory.push({
       role: 'user',
       content: message
@@ -443,9 +432,8 @@ router.post('/', async (req, res) => {
     }
 
     // Add dynamic context reminder based on conversation history and business profile
-    // For trigger messages, treat as first interaction
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile, isTriggerMessage);
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected, businessProfile);
     if (contextReminder) {
       conversationHistory.push({
         role: 'system',
@@ -488,7 +476,7 @@ router.post('/', async (req, res) => {
     // Update conversation state after processing
     const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
     const updatedState = updateState(
-      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected, isTriggerMessage),
+      initializeState(updatedBusinessProfile, conversationHistory, facebookConnected),
       updatedBusinessProfile,
       conversationHistory
     );
