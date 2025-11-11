@@ -270,9 +270,8 @@ class CopilotWidget {
 
         // Scroll to show quick replies
         setTimeout(() => {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth'
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             });
         }, 100);
     }
@@ -501,12 +500,11 @@ class CopilotWidget {
                                         typingIndicator.remove();
                                     }
                                     assistantMessageEl.textContent = fullResponse;
-                                    // Scroll to bottom smoothly
+                                    // Scroll to bottom smoothly (use requestAnimationFrame for reliable scrolling)
                                     const messagesContainer = document.getElementById('chat-messages');
                                     if (messagesContainer) {
-                                        messagesContainer.scrollTo({
-                                            top: messagesContainer.scrollHeight,
-                                            behavior: 'smooth'
+                                        requestAnimationFrame(() => {
+                                            messagesContainer.scrollTop = messagesContainer.scrollHeight;
                                         });
                                     }
                                 }
@@ -515,6 +513,14 @@ class CopilotWidget {
                                 fullResponse = parsed.fullResponse || fullResponse;
                                 if (assistantMessageEl) {
                                     assistantMessageEl.textContent = fullResponse;
+                                }
+                                
+                                // Scroll to bottom after final message
+                                const messagesContainer = document.getElementById('chat-messages');
+                                if (messagesContainer) {
+                                    requestAnimationFrame(() => {
+                                        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                                    });
                                 }
                                 
                                 // Show dynamically generated quick replies if available
@@ -582,10 +588,9 @@ class CopilotWidget {
         messageDiv.appendChild(messageContent);
         messagesContainer.appendChild(messageDiv);
 
-        // Scroll to bottom with smooth behavior
-        messagesContainer.scrollTo({
-            top: messagesContainer.scrollHeight,
-            behavior: 'smooth'
+        // Scroll to bottom (use scrollTop for immediate scroll, then smooth if needed)
+        requestAnimationFrame(() => {
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         });
 
         // Remove enter animation class after animation
@@ -761,9 +766,8 @@ class CopilotWidget {
 
         // Scroll to bottom
         setTimeout(() => {
-            messagesContainer.scrollTo({
-                top: messagesContainer.scrollHeight,
-                behavior: 'smooth'
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
             });
         }, 100);
     }

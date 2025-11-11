@@ -1,25 +1,31 @@
 /**
  * HighLevel Copilot Integration
-    *
-    * Professional integration for HighLevel sandbox environment
-    *
-    * INSTRUCTIONS:
-    * 1. Deploy backend to Vercel (see VERCEL_DEPLOYMENT.md)
-    * 2. Copy your Vercel deployment URL
+ * 
+ * Professional integration for HighLevel sandbox environment
+ * 
+ * INSTRUCTIONS:
+ * 1. Deploy backend to Vercel (see VERCEL_DEPLOYMENT.md)
+ * 2. Copy your Vercel deployment URL
  * 3. In HighLevel: Settings > Company > Custom JavaScript & Custom CSS
-    *    (For Agency view - this is where Custom JS is located)
-    * 4. Paste the CSS from highlevel-integration.css into the "Custom CSS" section
-    * 5. Paste this JavaScript code into the "Custom JS" section
-    * 6. Update COPILOT_API_URL below (line ~30)
-    * 7. Save and reload HighLevel
-    *
-    * IMPORTANT: Based on HighLevel documentation:
+ *    (For Agency view - this is where Custom JS is located)
+ * 4. Paste the CSS from highlevel-integration.css into the "Custom CSS" section
+ * 5. Paste this JavaScript code into the "Custom JS" section
+ * 6. Update COPILOT_API_URL below (line ~33) with your Vercel URL
+ * 7. Save and reload HighLevel
+ * 
+ * IMPORTANT: Based on HighLevel documentation:
  * - Custom JS and CSS are in separate sections in Settings > Company > Custom JavaScript & Custom CSS
-    * - Code must be self-contained (no remote file references)
-    * - HighLevel will automatically wrap this in <script> tags, so don't include them
-        *
-        * The Copilot will appear as a floating button in HighLevel's interface
-        */
+ * - Code must be self-contained (no remote file references)
+ * - HighLevel will automatically wrap this in <script> tags, so don't include them
+ * 
+ * DESIGN:
+ * - Purple gradient button (matches widget design: #667eea to #764ba2)
+ * - Widget starts directly in chat mode (no welcome screen)
+ * - Modern design with smooth animations and transitions
+ * - Responsive for mobile devices
+ * 
+ * The Copilot will appear as a floating button (✨ Ask AI) in the bottom-right corner of HighLevel's interface
+ */
 
 (function () {
     'use strict';
@@ -30,7 +36,8 @@
 
     // Your Vercel deployment URL (or localhost for dev)
     // IMPORTANT: Replace with your actual Vercel URL after deployment
-    const COPILOT_API_URL = 'https://hands-on-ai.vercel.app'; // Change this!
+    // Example: const COPILOT_API_URL = 'https://your-app.vercel.app';
+    const COPILOT_API_URL = 'https://hands-on-ai.vercel.app'; // ⚠️ UPDATE THIS with your Vercel URL!
 
     // For local development, use:
     // const COPILOT_API_URL = 'http://localhost:3000';
@@ -51,14 +58,17 @@
 
     const COPILOT_USER_ID = getHighLevelUserId();
 
-    // Widget styling configuration
+    // Widget styling configuration (matches latest widget design)
     const WIDGET_CONFIG = {
         position: 'bottom-right',
         width: '420px',
         height: '650px',
         zIndex: 999999, // High z-index to appear above HighLevel UI
         buttonSize: '64px',
-        buttonOffset: '24px'
+        buttonOffset: '24px',
+        primaryColor: '#667eea',
+        secondaryColor: '#764ba2',
+        gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
     };
 
     // ============================================
@@ -101,12 +111,13 @@
             id: 'hl-copilot-widget-container'
         });
 
-        // Create iframe
+        // Create iframe (widget starts directly in chat mode)
         iframe = createElement('iframe', {
             id: 'hl-copilot-iframe',
             src: `${COPILOT_API_URL}/widget/widget.html`,
             allow: 'clipboard-read; clipboard-write',
-            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox'
+            sandbox: 'allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox',
+            title: 'HighLevel Copilot Assistant'
         });
 
         // Configure iframe communication
@@ -159,9 +170,9 @@
     function createToggleButton() {
         toggleButton = createElement('button', {
             id: 'hl-copilot-toggle-btn',
-            innerHTML: '🤖',
-            title: 'Open Copilot Assistant',
-            'aria-label': 'Toggle Copilot Assistant'
+            innerHTML: '✨', // Ask AI icon (sparkles represent AI assistance)
+            title: 'Ask AI - Open Copilot Assistant',
+            'aria-label': 'Ask AI - Toggle Copilot Assistant'
         });
 
         toggleButton.addEventListener('click', function (e) {
@@ -206,8 +217,8 @@
         if (widgetContainer) {
             widgetContainer.style.display = 'none';
             toggleButton.classList.remove('active');
-            toggleButton.innerHTML = '🤖';
-            toggleButton.title = 'Open Copilot Assistant';
+            toggleButton.innerHTML = '✨'; // Ask AI icon
+            toggleButton.title = 'Ask AI - Open Copilot Assistant';
         }
         isOpen = false;
     }
