@@ -3,64 +3,14 @@ const router = express.Router();
 const Groq = require('groq-sdk');
 const config = require('../../config/config');
 const { getBusinessProfile } = require('../utils/profileStorage');
+const { HTTP_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES } = require('../constants');
 
 // Initialize Groq client
 const groq = config.ai.groq.apiKey ? new Groq({
   apiKey: config.ai.groq.apiKey
 }) : null;
 
-const MOCK_MODE = !config.ai.isConfigured();
-
-/**
- * Generate mock calendar for demo purposes
- */
-function generateMockCalendar(profile, startDate) {
-  const calendar = [];
-  const start = startDate ? new Date(startDate) : new Date();
-
-  const postTypes = ['Educational', 'Promotional', 'Inspirational', 'Behind-the-Scenes', 'User-Generated', 'Tips & Tricks'];
-  const industries = {
-    'Fitness': {
-      themes: ['Workout Tips', 'Nutrition Advice', 'Success Stories', 'Equipment Reviews', 'Motivation Monday'],
-      hashtags: ['#fitness', '#workout', '#health', '#motivation', '#gym']
-    },
-    'Restaurant': {
-      themes: ['New Menu Items', 'Chef Specials', 'Customer Reviews', 'Kitchen Behind-the-Scenes', 'Food Photography'],
-      hashtags: ['#food', '#restaurant', '#delicious', '#foodie', '#dining']
-    },
-    'E-commerce': {
-      themes: ['Product Launches', 'Customer Testimonials', 'Flash Sales', 'How-to Guides', 'Brand Story'],
-      hashtags: ['#shopping', '#deals', '#newarrivals', '#style', '#fashion']
-    }
-  };
-
-  const industryData = industries[profile?.industry] || {
-    themes: ['Business Tips', 'Industry News', 'Customer Spotlight', 'Company Updates', 'Expert Advice'],
-    hashtags: ['#business', '#marketing', '#success', '#entrepreneur', '#growth']
-  };
-
-  for (let i = 0; i < 30; i++) {
-    const date = new Date(start);
-    date.setDate(date.getDate() + i);
-
-    const themeIndex = i % industryData.themes.length;
-    const typeIndex = i % postTypes.length;
-
-    calendar.push({
-      id: `post-${i + 1}`,
-      day: i + 1,
-      date: date.toISOString().split('T')[0],
-      theme: `${industryData.themes[themeIndex]} - Day ${i + 1}`,
-      caption: `Engaging content for ${profile?.industry || 'your business'} on ${date.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}. This post is designed to connect with your ${profile?.audience || 'target audience'} and showcase your ${profile?.tone || 'professional'} brand voice.`,
-      type: postTypes[typeIndex],
-      hashtags: industryData.hashtags,
-      scheduled: false,
-      createdAt: new Date().toISOString()
-    });
-  }
-
-  return calendar;
-}
+// Mock functions removed - AI service must be configured
 
 /**
  * POST /api/calendar/generate
@@ -71,8 +21,8 @@ router.post('/generate', async (req, res) => {
     const { userId, startDate } = req.body;
 
     if (!userId) {
-      return res.status(400).json({
-        error: 'userId is required'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.USER_ID_REQUIRED
       });
     }
 
@@ -80,9 +30,17 @@ router.post('/generate', async (req, res) => {
     const profile = getBusinessProfile(userId);
 
     if (!profile) {
-      return res.status(404).json({
-        error: 'Business profile not found',
-        message: 'Please complete the business profile setup first'
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        error: ERROR_MESSAGES.PROFILE_NOT_FOUND,
+        message: ERROR_MESSAGES.PROFILE_SETUP_REQUIRED
+      });
+    }
+
+    // Check if Groq is configured
+    if (!groq) {
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        error: ERROR_MESSAGES.AI_NOT_CONFIGURED,
+        note: ERROR_MESSAGES.AI_CONFIG_NOTE
       });
     }
 
@@ -90,23 +48,6 @@ router.post('/generate', async (req, res) => {
     const start = startDate ? new Date(startDate) : new Date();
     const calendar = [];
     const posts = [];
-
-    // Mock mode - return mock calendar
-    if (MOCK_MODE) {
-      const mockCalendar = generateMockCalendar(profile, start);
-      return res.json({
-        success: true,
-        calendar: mockCalendar,
-        profile: {
-          industry: profile.industry,
-          audience: profile.audience,
-          tone: profile.tone
-        },
-        generatedAt: new Date().toISOString(),
-        mock: true,
-        note: 'Running in mock mode. GROQ_API_KEY not configured.'
-      });
-    }
 
     // Generate 30 days of content
     const prompt = `Generate a 30-day social media content calendar for a business with the following profile:
@@ -166,21 +107,8 @@ Generate exactly 30 posts, one for each day.`;
         response_format: { type: 'json_object' }
       });
     } catch (groqError) {
-      console.warn('Groq API error, falling back to mock calendar:', groqError.message);
-      // Fallback to mock calendar if Groq fails
-      const mockCalendar = generateMockCalendar(profile, start);
-      return res.json({
-        success: true,
-        calendar: mockCalendar,
-        profile: {
-          industry: profile.industry,
-          audience: profile.audience,
-          tone: profile.tone
-        },
-        generatedAt: new Date().toISOString(),
-        mock: true,
-        note: 'Groq API unavailable, using mock calendar.'
-      });
+      console.error('Groq API error:', groqError.message);
+      throw groqError;
     }
 
     let generatedContent;
@@ -254,30 +182,10 @@ Generate exactly 30 posts, one for each day.`;
 
   } catch (error) {
     console.error('Calendar generation error:', error);
-
-    // Try to return mock calendar as fallback
-    try {
-      const profile = getBusinessProfile(req.body.userId);
-      const mockCalendar = generateMockCalendar(profile, req.body.startDate ? new Date(req.body.startDate) : new Date());
-      return res.json({
-        success: true,
-        calendar: mockCalendar,
-        profile: profile ? {
-          industry: profile.industry,
-          audience: profile.audience,
-          tone: profile.tone
-        } : {},
-        generatedAt: new Date().toISOString(),
-        mock: true,
-        note: 'Error occurred, using mock calendar as fallback.'
-      });
-    } catch (fallbackError) {
-      res.status(500).json({
-        error: 'Failed to generate content calendar',
-        details: error.message,
-        note: 'This might be due to missing GROQ_API_KEY or API limits'
-      });
-    }
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      error: ERROR_MESSAGES.CALENDAR_GENERATION_FAILED,
+      details: error.message
+    });
   }
 });
 
@@ -332,7 +240,7 @@ router.patch('/post/:postId', (req, res) => {
     const { userId, updates } = req.body;
 
     if (!userId) {
-      return res.status(400).json({ error: 'userId is required' });
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({ error: ERROR_MESSAGES.USER_ID_REQUIRED });
     }
 
     // In production, update in database
@@ -345,7 +253,7 @@ router.patch('/post/:postId', (req, res) => {
     });
   } catch (error) {
     console.error('Update post error:', error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to update post',
       details: error.message
     });

@@ -124,12 +124,12 @@ if (!config.server.isVercel) {
       if (summary.ai.configured) {
         console.log('   ✅ AI: Configured');
       } else {
-        console.log('   ⚠️  AI: Not configured (Mock mode)');
+        console.log('   ⚠️  AI: Not configured');
       }
       if (summary.facebook.configured) {
         console.log('   ✅ Facebook: Configured');
       } else {
-        console.log('   ⚠️  Facebook: Not configured (Mock mode)');
+        console.log('   ⚠️  Facebook: Not configured');
       }
     }
     console.log('\n✨ Server ready! Use Ctrl+C to stop.\n');

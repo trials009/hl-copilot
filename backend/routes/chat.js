@@ -3,6 +3,7 @@ const router = express.Router();
 const Groq = require('groq-sdk');
 const config = require('../../config/config');
 const { getBusinessProfile, updateBusinessProfile } = require('../utils/profileStorage');
+const { HTTP_STATUS, ERROR_MESSAGES, CONVERSATION_FLOW, QUICK_REPLY_LIMITS } = require('../constants');
 
 // Initialize Groq client
 const groq = config.ai.groq.apiKey ? new Groq({
@@ -13,166 +14,34 @@ const groq = config.ai.groq.apiKey ? new Groq({
 const conversations = new Map();
 
 /**
- * Extract industry hints from URL or referrer
- * Returns an array of potential industries or null if none detected
+ * Build dynamic context prompt based on conversation history and user status
+ * Consolidates all context logic into a single prompt function
  */
-function extractIndustryFromUrl(url, referrer) {
-  if (!url && !referrer) return null;
-
-  const combinedUrl = (url || '') + ' ' + (referrer || '');
-  const urlLower = combinedUrl.toLowerCase();
-
-  // Industry keyword mappings
-  const industryKeywords = {
-    'restaurant': ['restaurant', 'food', 'dining', 'cafe', 'bakery', 'pizza', 'burger', 'cuisine', 'menu', 'chef', 'catering'],
-    'fitness': ['fitness', 'gym', 'workout', 'health', 'wellness', 'yoga', 'pilates', 'training', 'exercise', 'nutrition'],
-    'ecommerce': ['shop', 'store', 'buy', 'product', 'cart', 'checkout', 'ecommerce', 'e-commerce', 'retail', 'merchandise'],
-    'professional': ['service', 'consulting', 'legal', 'accounting', 'financial', 'professional', 'business', 'agency', 'firm'],
-    'beauty': ['beauty', 'salon', 'spa', 'cosmetic', 'hair', 'nail', 'skincare', 'makeup'],
-    'education': ['education', 'school', 'course', 'training', 'learning', 'academy', 'tutor', 'university'],
-    'realestate': ['real estate', 'property', 'home', 'house', 'apartment', 'realtor', 'mortgage'],
-    'technology': ['tech', 'software', 'app', 'development', 'programming', 'digital', 'it', 'computer'],
-    'healthcare': ['health', 'medical', 'doctor', 'clinic', 'hospital', 'therapy', 'treatment', 'patient'],
-    'automotive': ['car', 'auto', 'vehicle', 'automotive', 'dealership', 'repair', 'mechanic']
-  };
-
-  // Check for matches
-  const detectedIndustries = [];
-  for (const [industry, keywords] of Object.entries(industryKeywords)) {
-    if (keywords.some(keyword => urlLower.includes(keyword))) {
-      detectedIndustries.push(industry);
-    }
-  }
-
-  return detectedIndustries.length > 0 ? detectedIndustries : null;
-}
-
-/**
- * Generate dynamic industry options based on URL context or return null for random generation
- */
-function generateIndustryOptions(urlIndustries) {
-  if (!urlIndustries || urlIndustries.length === 0) {
-    return null; // Let AI generate random options
-  }
-
-  // Convert detected industries to readable format
-  const industryMap = {
-    'restaurant': 'Restaurant & Food',
-    'fitness': 'Fitness & Health',
-    'ecommerce': 'E-commerce',
-    'professional': 'Professional Services',
-    'beauty': 'Beauty & Wellness',
-    'education': 'Education & Training',
-    'realestate': 'Real Estate',
-    'technology': 'Technology & Software',
-    'healthcare': 'Healthcare & Medical',
-    'automotive': 'Automotive'
-  };
-
-  const options = urlIndustries
-    .slice(0, 3) // Take top 3 matches
-    .map(ind => industryMap[ind] || ind)
-    .filter(Boolean);
-
-  return options.length > 0 ? options : null;
-}
-
-/**
- * Analyze conversation history and generate context-aware quick reply reminder
- * Now completely dynamic - no hardcoded industries
- * Enforces Facebook connection after 3-4 questions
- */
-function getQuickReplyContext(conversationHistory, urlContext = null, facebookConnected = false) {
-  // Look through conversation history to see what user has already selected
-  const userMessages = conversationHistory.filter(msg => msg.role === 'user').map(msg => msg.content.toLowerCase());
-  const assistantMessages = conversationHistory.filter(msg => msg.role === 'assistant').map(msg => msg.content.toLowerCase());
-
-  // Count REAL user responses (exclude greetings, empty messages, and trigger messages)
+function buildContextReminder(conversationHistory, facebookConnected) {
+  const userMessages = conversationHistory.filter(msg => msg.role === 'user');
   const realUserResponses = userMessages.filter(msg => {
-    const trimmed = msg.trim();
-    return trimmed !== '' &&
-      trimmed !== 'hello' &&
-      trimmed !== 'hi' &&
-      trimmed !== 'start' &&
-      trimmed.length >= 3;
+    const trimmed = msg.content.trim().toLowerCase();
+    return trimmed && trimmed !== 'hello' && trimmed !== 'hi' && trimmed !== 'start' && trimmed.length >= 3;
   }).length;
-
-  // Count how many user messages we have (to determine conversation stage)
-  const userMessageCount = userMessages.length;
-  const assistantMessageCount = assistantMessages.length;
-
-  // Check if this is the very first interaction (first user message, no assistant responses yet)
-  const isFirstInteraction = userMessageCount === 1 && assistantMessageCount === 0;
-
-  // Check if the first message is empty or just a greeting (triggers welcome)
-  const firstMessageIsTrigger = isFirstInteraction && (
-    userMessages[0].trim() === '' ||
-    userMessages[0].trim() === 'hello' ||
-    userMessages[0].trim() === 'hi' ||
-    userMessages[0].trim() === 'start' ||
-    userMessages[0].length < 3
-  );
-
-  // Check if asking about products/services (to include "All of these")
-  const lastAssistantMsg = assistantMessages[assistantMessages.length - 1] || '';
-  const isAskingAboutProducts = lastAssistantMsg.includes('product') ||
-    lastAssistantMsg.includes('service') ||
-    lastAssistantMsg.includes('menu') ||
-    lastAssistantMsg.includes('offer') ||
-    lastAssistantMsg.includes('specialize');
-
-  const isAskingAboutAudience = lastAssistantMsg.includes('audience') ||
-    lastAssistantMsg.includes('customer') ||
-    lastAssistantMsg.includes('target') ||
-    lastAssistantMsg.includes('who');
-
-  // Check if we've already asked about Facebook connection recently
-  const alreadyAskedAboutFacebook = lastAssistantMsg.includes('facebook') ||
-    lastAssistantMsg.includes('connect');
-
-  // Check if user just clicked "Connect Facebook"
-  const lastUserMsg = userMessages[userMessages.length - 1] || '';
-  const userClickedConnect = lastUserMsg.includes('connect') && lastUserMsg.includes('facebook');
 
   let contextReminder = '';
 
-  // CRITICAL: After 3-4 real user responses, REQUIRE Facebook connection
-  // BUT only if we haven't already asked in the last message
-  if (realUserResponses >= 3 && !facebookConnected && !alreadyAskedAboutFacebook && !userClickedConnect) {
-    contextReminder = '\n\n🚨 CRITICAL CONTEXT: The user has answered 3+ questions but Facebook is NOT connected yet. You MUST now ask them to connect their Facebook account. Include "Connect Facebook" as a quick reply option. Say something like "Great! Now let\'s connect your Facebook account so I can help you create and schedule posts." Make it clear this is the next step. QUICK_REPLIES must include "Connect Facebook".';
-    return contextReminder;
+  // Check if Facebook connection is required
+  if (realUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK &&
+    !facebookConnected &&
+    !conversationHistory.some(msg => msg.role === 'assistant' && msg.content.toLowerCase().includes('connect facebook'))) {
+    contextReminder += '\n\n🚨 CRITICAL: The user has answered multiple questions but Facebook is NOT connected. You MUST now ask them to connect their Facebook account. Include "Connect Facebook" as a quick reply option.';
   }
 
-  // If user clicked Connect Facebook, don't give any special context (they're on connection screen)
-  if (userClickedConnect) {
-    return '';
-  }
-
-  // First interaction - ask about industry with URL context if available
-  if (isFirstInteraction && firstMessageIsTrigger) {
-    if (urlContext && urlContext.industryOptions && urlContext.industryOptions.length > 0) {
-      const optionsStr = urlContext.industryOptions.map(opt => `"${opt}"`).join(', ');
-      contextReminder = `\n\nCONTEXT (Question 1 of 4): This is the very first interaction. Ask "What industry are you in?" Based on the user's website URL, they might be in one of these industries: [${optionsStr}]. Generate quick reply options that include these as suggestions, but also add 2-3 other common industries. Format: QUICK_REPLIES: ["Option1", "Option2", ...]`;
-    } else {
-      // No URL context - let AI generate diverse industry options
-      contextReminder = '\n\nCONTEXT (Question 1 of 4): This is the very first interaction. Ask "What industry are you in?" Generate 4-5 diverse industry quick reply options that cover common business types. Include an "Other" option.';
-    }
+  // Add conversation stage context
+  if (realUserResponses === 0) {
+    contextReminder += '\n\nCONTEXT: This is the first interaction. Ask "What industry are you in?" and generate 4-5 diverse industry quick reply options. Always include an "Other" option.';
   } else if (realUserResponses === 1) {
-    // Second question - ask about products/services
-    contextReminder = '\n\nCONTEXT (Question 2 of 4): The user has shared their industry. Now ask about their specific products/services. Generate relevant options based on their industry. IMPORTANT: Start the quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option. Example: ["All of these", "Category1", "Category2", "Category3", "Other"]';
+    contextReminder += '\n\nCONTEXT: The user has shared their industry. Now ask about their specific products/services. Generate relevant options based on their industry. IMPORTANT: Start quick replies with "All of these" as the FIRST option, then list 3-4 specific categories, then "Other" as the last option.';
   } else if (realUserResponses === 2) {
-    // Third question - ask about target audience or business details
-    if (isAskingAboutAudience) {
-      contextReminder = '\n\nCONTEXT (Question 3 of 4): Ask about their target audience or customer demographics. If showing multiple audience segments, include "All of these" as the first option. Generate 3-4 relevant audience options based on their business, with "Other" at the end.';
-    } else {
-      contextReminder = '\n\nCONTEXT (Question 3 of 4): Ask about target audience, business goals, or other relevant details. Generate contextually relevant quick replies. If showing categories, include "All of these" first and "Other" last.';
-    }
-  } else if (realUserResponses >= 3 && facebookConnected) {
-    // Facebook is connected - can proceed to scheduling
-    contextReminder = '\n\nCONTEXT: Facebook is connected! You can now ask if they want to generate posts. Include "Schedule FB Posts" or "Generate Posts" as a quick reply option.';
-  } else if (isAskingAboutProducts) {
-    // If asking about products at any point, remind about "All of these"
-    contextReminder = '\n\nCONTEXT: When asking about products/services/categories, ALWAYS include "All of these" as the FIRST option in quick replies, followed by specific options, then "Other" as the last option.';
+    contextReminder += '\n\nCONTEXT: Ask about target audience, business goals, or other relevant details. Generate contextually relevant quick replies. If showing categories, include "All of these" first and "Other" last.';
+  } else if (realUserResponses >= CONVERSATION_FLOW.MIN_QUESTIONS_BEFORE_FACEBOOK && facebookConnected) {
+    contextReminder += '\n\nCONTEXT: Facebook is connected! You can now ask if they want to generate posts. Include "Schedule FB Posts" or "Generate Posts" as a quick reply option.';
   }
 
   return contextReminder;
@@ -304,8 +173,8 @@ router.post('/stream', async (req, res) => {
     const { message, sessionId, userId, url, referrer } = req.body;
 
     if (!message || !sessionId) {
-      return res.status(400).json({
-        error: 'Message and sessionId are required'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.MESSAGE_REQUIRED
       });
     }
 
@@ -331,15 +200,7 @@ router.post('/stream', async (req, res) => {
       content: message
     });
 
-    // Extract industry hints from URL/referrer (only on first message)
-    let urlContext = null;
-    if (conversationHistory.filter(msg => msg.role === 'user').length === 1) {
-      const urlIndustries = extractIndustryFromUrl(url, referrer);
-      const industryOptions = generateIndustryOptions(urlIndustries);
-      if (industryOptions) {
-        urlContext = { industryOptions };
-      }
-    }
+    // URL context removed - AI will generate industry options dynamically
 
     // Get business profile if available
     const businessProfile = getBusinessProfile(userId || sessionId);
@@ -363,22 +224,21 @@ router.post('/stream', async (req, res) => {
       conversationHistory[0].content = SYSTEM_PROMPT + contextPrompt;
     }
 
-    // Add dynamic quick reply context reminder based on conversation history and URL context
+    // Add dynamic context reminder based on conversation history
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const quickReplyContext = getQuickReplyContext(conversationHistory, urlContext, facebookConnected);
-    if (quickReplyContext) {
-      // Add as a system message reminder right before the API call
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected);
+    if (contextReminder) {
       conversationHistory.push({
         role: 'system',
-        content: quickReplyContext
+        content: contextReminder
       });
     }
 
     // Check if Groq is configured
     if (!groq) {
-      return res.status(500).json({
-        error: 'AI service not configured',
-        note: 'Please configure GROQ_API_KEY in your environment variables'
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        error: ERROR_MESSAGES.AI_NOT_CONFIGURED,
+        note: ERROR_MESSAGES.AI_CONFIG_NOTE
       });
     }
 
@@ -500,8 +360,8 @@ router.post('/stream', async (req, res) => {
     // Send error via SSE
     res.write(`data: ${JSON.stringify({
       type: 'error',
-      error: 'Failed to process chat message',
-      details: config.server.env === 'development' ? error.message : undefined
+      error: ERROR_MESSAGES.CHAT_FAILED,
+      details: error.message
     })}\n\n`);
     res.end();
   }
@@ -516,8 +376,8 @@ router.post('/', async (req, res) => {
     const { message, sessionId, userId, url, referrer } = req.body;
 
     if (!message || !sessionId) {
-      return res.status(400).json({
-        error: 'Message and sessionId are required'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.MESSAGE_REQUIRED
       });
     }
 
@@ -537,15 +397,7 @@ router.post('/', async (req, res) => {
       content: message
     });
 
-    // Extract industry hints from URL/referrer (only on first message)
-    let urlContext = null;
-    if (conversationHistory.filter(msg => msg.role === 'user').length === 1) {
-      const urlIndustries = extractIndustryFromUrl(url, referrer);
-      const industryOptions = generateIndustryOptions(urlIndustries);
-      if (industryOptions) {
-        urlContext = { industryOptions };
-      }
-    }
+    // URL context removed - AI will generate industry options dynamically
 
     // Get business profile if available
     const businessProfile = getBusinessProfile(userId || sessionId);
@@ -569,22 +421,21 @@ router.post('/', async (req, res) => {
       conversationHistory[0].content = SYSTEM_PROMPT + contextPrompt;
     }
 
-    // Add dynamic quick reply context reminder based on conversation history and URL context
+    // Add dynamic context reminder based on conversation history
     const facebookConnected = businessProfile?.facebookConnected || false;
-    const quickReplyContext = getQuickReplyContext(conversationHistory, urlContext, facebookConnected);
-    if (quickReplyContext) {
-      // Add as a system message reminder right before the API call
+    const contextReminder = buildContextReminder(conversationHistory, facebookConnected);
+    if (contextReminder) {
       conversationHistory.push({
         role: 'system',
-        content: quickReplyContext
+        content: contextReminder
       });
     }
 
     // Check if Groq is configured
     if (!groq) {
-      return res.status(500).json({
-        error: 'AI service not configured',
-        note: 'Please configure GROQ_API_KEY in your environment variables'
+      return res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+        error: ERROR_MESSAGES.AI_NOT_CONFIGURED,
+        note: ERROR_MESSAGES.AI_CONFIG_NOTE
       });
     }
 
@@ -619,8 +470,8 @@ router.post('/', async (req, res) => {
 
   } catch (error) {
     console.error('Chat error:', error);
-    res.status(500).json({
-      error: 'Failed to process chat message',
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      error: ERROR_MESSAGES.CHAT_FAILED,
       details: error.message
     });
   }

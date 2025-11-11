@@ -3,8 +3,9 @@ const router = express.Router();
 const axios = require('axios');
 const config = require('../../config/config');
 const { getBusinessProfile } = require('../utils/profileStorage');
+const { HTTP_STATUS, ERROR_MESSAGES, SUCCESS_MESSAGES, API_URLS } = require('../constants');
 
-const FACEBOOK_GRAPH_API = config.facebook.graphApiUrl;
+const FACEBOOK_GRAPH_API = API_URLS.FACEBOOK_GRAPH;
 
 /**
  * POST /api/scheduling/schedule
@@ -15,8 +16,8 @@ router.post('/schedule', async (req, res) => {
     const { userId, postId, date, caption, hashtags } = req.body;
 
     if (!userId || !date || !caption) {
-      return res.status(400).json({
-        error: 'userId, date, and caption are required'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.SCHEDULE_REQUIRED_FIELDS
       });
     }
 
@@ -24,24 +25,24 @@ router.post('/schedule', async (req, res) => {
     const profile = getBusinessProfile(userId);
 
     if (!profile) {
-      return res.status(404).json({
-        error: 'Business profile not found'
+      return res.status(HTTP_STATUS.NOT_FOUND).json({
+        error: ERROR_MESSAGES.PROFILE_NOT_FOUND
       });
     }
 
     if (!profile.facebookConnected || !profile.facebookPageId) {
-      return res.status(400).json({
-        error: 'Facebook account not connected',
-        message: 'Please connect your Facebook account first'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.FACEBOOK_NOT_CONNECTED,
+        message: ERROR_MESSAGES.FACEBOOK_CONNECT_REQUIRED
       });
     }
 
     const accessToken = profile.facebookAccessToken;
 
     if (!accessToken) {
-      return res.status(400).json({
-        error: 'Facebook access token not found',
-        message: 'Please reconnect your Facebook account'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.FACEBOOK_TOKEN_MISSING,
+        message: ERROR_MESSAGES.FACEBOOK_RECONNECT_REQUIRED
       });
     }
 
@@ -159,7 +160,7 @@ router.post('/schedule', async (req, res) => {
 
       res.json({
         success: true,
-        message: 'Post scheduled successfully',
+        message: SUCCESS_MESSAGES.POST_SCHEDULED,
         postId: response.data.id,
         scheduledTime: finalScheduledTime.toISOString(),
         facebookPostId: response.data.id,
@@ -175,7 +176,7 @@ router.post('/schedule', async (req, res) => {
       if (errorData) {
         // Error 100: Cannot schedule published post or invalid scheduled time
         if (errorData.code === 100) {
-          return res.status(400).json({
+          return res.status(HTTP_STATUS.BAD_REQUEST).json({
             error: 'Facebook scheduling error',
             message: errorData.message || 'Cannot schedule this post. Ensure the scheduled time is at least 10 minutes in the future.',
             code: errorData.code,
@@ -185,29 +186,15 @@ router.post('/schedule', async (req, res) => {
         }
       }
 
-      // If real API fails, return mock response for demo (only in development)
-      if (config.server.env === 'development' && !config.facebook.isConfigured()) {
-        return res.json({
-          success: true,
-          message: 'Post scheduled successfully (MOCKED - Facebook API not fully configured)',
-          postId: postId || `mock-${Date.now()}`,
-          scheduledTime: finalScheduledTime.toISOString(),
-          facebookPostId: `mock-fb-${Date.now()}`,
-          note: 'This is a mocked response. Configure Facebook credentials for real scheduling.',
-          mock: true
-        });
-      }
-
       // Re-throw the error for proper error handling
       throw facebookError;
     }
 
   } catch (error) {
     console.error('Scheduling error:', error);
-    res.status(500).json({
-      error: 'Failed to schedule post',
-      details: error.response?.data || error.message,
-      note: 'If Facebook API is not configured, this will return a mock response in development mode'
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      error: ERROR_MESSAGES.SCHEDULE_FAILED,
+      details: error.response?.data || error.message
     });
   }
 });
@@ -221,7 +208,7 @@ router.post('/schedule-batch', async (req, res) => {
     const { userId, posts } = req.body;
 
     if (!userId || !posts || !Array.isArray(posts)) {
-      return res.status(400).json({
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
         error: 'userId and posts array are required'
       });
     }
@@ -230,8 +217,8 @@ router.post('/schedule-batch', async (req, res) => {
     const profile = getBusinessProfile(userId);
 
     if (!profile || !profile.facebookConnected) {
-      return res.status(400).json({
-        error: 'Facebook account not connected'
+      return res.status(HTTP_STATUS.BAD_REQUEST).json({
+        error: ERROR_MESSAGES.FACEBOOK_NOT_CONNECTED
       });
     }
 
@@ -268,6 +255,7 @@ router.post('/schedule-batch', async (req, res) => {
 
     res.json({
       success: true,
+      message: errors.length > 0 ? ERROR_MESSAGES.BULK_SCHEDULE_FAILED : SUCCESS_MESSAGES.POSTS_SCHEDULED,
       total: posts.length,
       succeeded: results.length,
       failed: errors.length,
@@ -277,8 +265,8 @@ router.post('/schedule-batch', async (req, res) => {
 
   } catch (error) {
     console.error('Batch scheduling error:', error);
-    res.status(500).json({
-      error: 'Failed to schedule posts',
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
+      error: ERROR_MESSAGES.BULK_SCHEDULE_FAILED,
       details: error.message
     });
   }
@@ -309,7 +297,7 @@ router.get('/posts/:userId', async (req, res) => {
 
   } catch (error) {
     console.error('Get posts error:', error);
-    res.status(500).json({
+    res.status(HTTP_STATUS.INTERNAL_SERVER_ERROR).json({
       error: 'Failed to fetch scheduled posts',
       details: error.message
     });
