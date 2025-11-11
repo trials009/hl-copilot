@@ -102,7 +102,7 @@ function determineNextState(state) {
             return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
 
         case CONVERSATION_STATES.COLLECTING_TONE:
-            if (!facebookConnected && realUserResponses >= 3) {
+            if (!facebookConnected && userResponseCount >= 3) {
                 return CONVERSATION_STATES.FACEBOOK_CONNECTION_REQUIRED;
             } else if (facebookConnected) {
                 return CONVERSATION_STATES.POST_GENERATION_READY;

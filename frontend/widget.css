@@ -360,6 +360,8 @@ body {
     line-height: 1.5;
     font-size: 14px;
     font-weight: 400;
+    white-space: pre-wrap; /* Preserve newlines in messages */
+    word-wrap: break-word; /* Break long words if needed */
 }
 
 .message.user .message-content {

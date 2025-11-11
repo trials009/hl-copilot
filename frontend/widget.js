@@ -101,6 +101,11 @@ class CopilotWidget {
                 // Scroll to bottom after loading
                 setTimeout(() => {
                     this.scrollToBottom(false);
+                    // Ensure all restored messages preserve newlines
+                    const restoredMessages = messagesContainer.querySelectorAll('.message-content');
+                    restoredMessages.forEach(el => {
+                        el.style.whiteSpace = 'pre-wrap';
+                    });
                 }, 100);
                 
                 // Return true to indicate history was loaded
@@ -640,6 +645,7 @@ class CopilotWidget {
                                     if (typingIndicator) {
                                         typingIndicator.remove();
                                     }
+                                    assistantMessageEl.style.whiteSpace = 'pre-wrap';
                                     assistantMessageEl.textContent = fullResponse;
                                     // Scroll to bottom during streaming (auto scroll for better UX during typing)
                                     this.scrollToBottom(false);
@@ -648,6 +654,7 @@ class CopilotWidget {
                                 // Final response with quick replies
                                 fullResponse = parsed.fullResponse || fullResponse;
                                 if (assistantMessageEl) {
+                                    assistantMessageEl.style.whiteSpace = 'pre-wrap';
                                     assistantMessageEl.textContent = fullResponse;
                                 }
 
@@ -674,6 +681,7 @@ class CopilotWidget {
         } catch (error) {
             console.error('Error sending message:', error);
             if (assistantMessageEl) {
+                assistantMessageEl.style.whiteSpace = 'pre-wrap';
                 assistantMessageEl.textContent = 'Sorry, I encountered an error. Please try again.';
             } else {
                 this.addMessage('assistant', 'Sorry, I encountered an error. Please try again.');
@@ -733,6 +741,8 @@ class CopilotWidget {
             `;
             messageContent.appendChild(typingIndicator);
         } else {
+            // Preserve newlines in message content
+            messageContent.style.whiteSpace = 'pre-wrap';
             messageContent.textContent = content;
         }
 
