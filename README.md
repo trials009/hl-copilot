@@ -196,14 +196,31 @@ sequenceDiagram
 
 ### 5. LangGraph State Machine (Conversation Flow Management)
 
-**Purpose**: Manages conversation state transitions and context-aware AI prompts using a state machine pattern inspired by LangGraph.
+**Purpose**: Manages conversation state transitions and context-aware AI prompts using LangGraph.js StateGraph for robust state management.
 
 **Implementation**:
 ```javascript
-// State machine manages conversation flow
+// LangGraph StateGraph manages conversation flow
+const { StateGraph, Annotation } = require('@langchain/langgraph');
+
+// Define state schema with Annotation.Root
+const StateSchema = Annotation.Root({
+    currentState: Annotation({ reducer: (x, y) => y ?? x }),
+    businessProfile: Annotation({ reducer: (x, y) => y ?? x }),
+    // ... other state fields
+});
+
+// Build and compile the graph
+const workflow = new StateGraph(StateSchema);
+workflow.addNode('determine_state', determineStateNode);
+workflow.setEntryPoint('determine_state');
+workflow.addEdge('determine_state', END);
+const graph = workflow.compile();
+
+// Use in conversation flow
 const state = initializeState(businessProfile, conversationHistory, facebookConnected);
 const contextReminder = getContextReminderForState(state);
-const nextState = determineNextState(state);
+const nextState = await determineNextState(state); // Uses LangGraph
 ```
 
 **Conversation States**:
@@ -217,6 +234,7 @@ const nextState = determineNextState(state);
 - `POST_GENERATION_READY` - All information gathered, can generate posts
 
 **Key Features**:
+- **LangGraph.js StateGraph**: Uses `@langchain/langgraph` for robust, graph-based state management
 - **Data-driven state transitions**: No hardcoded message patterns (e.g., "hi", "hello", "start")
 - **LLM-powered extraction**: Business profile information extracted via Groq API, not keyword matching
 - **Context-aware prompts**: AI receives state-specific context reminders to guide conversation

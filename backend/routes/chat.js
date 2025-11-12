@@ -351,13 +351,15 @@ router.post('/stream', async (req, res) => {
       console.error('Background business info extraction error:', err);
     });
 
-    // Update conversation state after processing
+    // Update conversation state after processing (async with LangGraph)
     const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
-    const updatedState = updateState(
+    updateState(
       initializeState(updatedBusinessProfile, conversationHistory, facebookConnected),
       updatedBusinessProfile,
       conversationHistory
-    );
+    ).catch(err => {
+      console.error('State update error:', err);
+    });
     // State is now updated and will be used in next interaction
 
     // Close the stream
@@ -473,13 +475,15 @@ router.post('/', async (req, res) => {
       console.error('Background business info extraction error:', err);
     });
 
-    // Update conversation state after processing
+    // Update conversation state after processing (async with LangGraph)
     const updatedBusinessProfile = getBusinessProfile(userId || sessionId);
-    const updatedState = updateState(
+    updateState(
       initializeState(updatedBusinessProfile, conversationHistory, facebookConnected),
       updatedBusinessProfile,
       conversationHistory
-    );
+    ).catch(err => {
+      console.error('State update error:', err);
+    });
     // State is now updated and will be used in next interaction
 
     // Return response
